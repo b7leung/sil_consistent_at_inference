@@ -49,20 +49,24 @@ class MeshRefiner():
     # silhouette consistency on the mask at the given pose.
     # record_intermediate will return a list of meshes
     # TODO: fix mesh (currently, needs to already be in device)
-    def refine_mesh(self, mesh, image, mask, pred_dist, pred_elev, pred_azim, record_intermediate=False):
+    def refine_mesh(self, mesh, rgba_image, pred_dist, pred_elev, pred_azim, record_intermediate=False):
         '''
         Args:
         pred_dist (int)
         pred_elev (int)
         pred_azim (int)
-        image (np int array, 224 x 224 x 3, rgb, 0-255)
-        mask (np bool array, 224 x 224)
+        rgba_image (np int array, 224 x 224 x 4, rgba, 0-255)
         '''
+
         # prep inputs used during training
-        pose_in = torch.unsqueeze(torch.tensor([pred_dist, pred_elev, pred_azim]),0).to(self.device)
+
+        image = rgba_image[:,:,:3]
         image_in = torch.unsqueeze(torch.tensor(image/255, dtype=torch.float).permute(2,0,1),0).to(self.device)
-        verts_in = torch.unsqueeze(mesh.verts_packed(),0).to(self.device)
+        mask = rgba_image[:,:,3] > 0
         mask_gt = torch.tensor(mask, dtype=torch.float).to(self.device)
+        pose_in = torch.unsqueeze(torch.tensor([pred_dist, pred_elev, pred_azim]),0).to(self.device)
+        verts_in = torch.unsqueeze(mesh.verts_packed(),0).to(self.device)
+
         R, T = look_at_view_transform(pred_dist, pred_elev, pred_azim) 
         num_vertices = mesh.verts_packed().shape[0]
         zero_deformation_tensor = torch.zeros((num_vertices, 3)).to(self.device)
