@@ -4,18 +4,19 @@ import sys
 import meshlabxml as mlx
 import platform
 from tqdm import tqdm
+from shutil import copyfile
 
 # based off https://github.com/HusseinBakri/3DMeshBulkSimplification
+# returns a boolean if the mesh was simplified (if false, means mesh already had few enough faces and a simply copy was performed)
 def perform_simplify_mesh(original_mesh_path, simplified_mesh_path, num_faces):
 
     #Check the input mesh number of faces (so that we do not decimate to a higher number of faces than original mesh)
     MetricsMeshDictionary = {}
     MetricsMeshDictionary = mlx.files.measure_topology(original_mesh_path)
     if(MetricsMeshDictionary['face_num'] <= num_faces):
-        #exit the script and print a message about it
-        print("\n SORRY your decimated mesh can not have higher number of faces that the input mesh.....")
-        sys.exit()
-
+        copyfile(original_mesh_path, simplified_mesh_path)
+        return False
+        
     # simplify
     simplified_meshScript = mlx.FilterScript(file_in=original_mesh_path, file_out=simplified_mesh_path,
                                          ml_version='2016.12')  # Create FilterScript object
@@ -25,6 +26,8 @@ def perform_simplify_mesh(original_mesh_path, simplified_mesh_path, num_faces):
                         optimal_placement=True, planar_quadric=True,
                         selected=False, extra_tex_coord_weight=1.0)
     simplified_meshScript.run_script()
+
+    return True
 
 
 # https://stackoverflow.com/questions/11968998/remove-lines-that-contain-certain-string
@@ -68,8 +71,8 @@ for model_name in tqdm(models):
     simplified_path = os.path.join(output_folder, model_name)
     original_path = os.path.join(args.meshes_dir, model_name)
     if args.overwrite or not os.path.exists(simplified_path):
-        perform_simplify_mesh(original_path, simplified_path, args.num_faces)
-        if not args.keep_texture:
+        is_simplified = perform_simplify_mesh(original_path, simplified_path, args.num_faces)
+        if is_simplified and not args.keep_texture:
             remove_lines_with_substrings(simplified_path, ['mtl'])
             os.remove(simplified_path+'.mtl')
 
