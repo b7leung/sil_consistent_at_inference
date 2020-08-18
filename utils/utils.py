@@ -151,7 +151,6 @@ def batched_render(mesh, azims, elevs, dists, batch_size, device, silhouette=Fal
     num_renders = azims.shape[0]
     renders = []
     for batch_i in (range(int(np.ceil(num_renders/batch_size)))):
-    #for batch_i in tqdm(range(int(np.ceil(num_renders/batch_size)))):
         pose_idx_start = batch_i * batch_size
         pose_idx_end = min((batch_i+1) * batch_size, num_renders)
         batch_azims = azims[pose_idx_start:pose_idx_end]

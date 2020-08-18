@@ -4,7 +4,7 @@ import glob
 import pprint
 import pickle
 
-from tqdm import tqdm
+from tqdm.autonotebook import tqdm
 import torch
 from PIL import Image
 import numpy as np
@@ -21,7 +21,7 @@ from pose_est import brute_force_pose_est
 # the folder needs to have .obj meshes, and for each mesh, a corresponding .png image (with segmented, transparent bg) of size 244 x 224, with the same filename.
 # Upon completion, will return a pickle file called
 # a dict with dataframes containing training information, and save all the processed meshes
-# NOTE: Conection is that original iamges cannot have an underscore in the filename
+# NOTE: Condition is that original iamges cannot have an underscore in the filename
 def postprocess_data(input_dir_img, input_dir_mesh, cfg_path, gpu_num, recompute_poses=False, meshes_group_name="postprocessed"):
     device = torch.device("cuda:"+str(gpu_num))
 

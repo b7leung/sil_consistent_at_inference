@@ -20,7 +20,7 @@ from pytorch3d.renderer import (
     SoftPhongShader
 )
 from pytorch3d.loss import mesh_laplacian_smoothing, mesh_normal_consistency
-from tqdm import tqdm
+from tqdm.autonotebook import tqdm
 import pandas as pd
 
 from utils import utils, network_utils
