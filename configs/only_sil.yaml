@@ -3,20 +3,18 @@ model:
   latent_dim_resnet: 256
 
 training:
-  num_iterations: 600
+  num_iterations: 300
   learning_rate: 0.00001 #[0.00001*]
-
-  semantic_dis_weight_path: "configs/semantic_dis_net_weights.p"
-  semantic_dis_num_render: 4
-  semantic_dis_lam: 1 # semantic discriminator loss weight
-
   img_sym_num_azim: 1 #[1*]
-  img_sym_lam: 100 # image-based symmetry loss [100*]
+
+  semantic_dis_lam: 0 # semantic discriminator loss
+  semantic_dis_weight_path: "configs/semantic_dis_net_weights.p"
 
   sil_lam: 5 # silouette loss. [5*]
-  vertex_sym_lam: 0.1 # vertex-based symmetry loss [0.1*]
+  vertex_sym_lam: 0 # vertex-based symmetry loss [0.1*]
+  img_sym_lam: 0 # image-based symmetry loss [100*]
 
-  l2_lam: 10 # l2 loss on delta v  [10*]
+  l2_lam: 5 # l2 loss on delta v  [10*]
   lap_lam: 10  # laplacian smoothing loss [10*]
   normals_lam: 10 # normal consistency loss [10*]
 

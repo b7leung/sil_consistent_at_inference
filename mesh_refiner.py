@@ -26,12 +26,14 @@ import pandas as pd
 from utils import utils, network_utils
 from deformation.deformation_net import DeformationNetwork
 import deformation.losses as def_losses
+from deformation.semantic_discriminator_loss import SemanticDiscriminatorLoss 
 
 
 class MeshRefiner():
 
     def __init__(self, cfg_yaml_path, device):
         self.cfg = utils.load_config(cfg_yaml_path)
+        pprint.pprint(self.cfg)
         self.device = device
 
         self.num_iterations = self.cfg["training"]["num_iterations"]
@@ -40,10 +42,13 @@ class MeshRefiner():
         self.sil_lam = self.cfg["training"]["sil_lam"]
         self.l2_lam = self.cfg["training"]["l2_lam"]
         self.lap_lam = self.cfg["training"]["lap_lam"]
-        self.normals_lam= self.cfg["training"]["normals_lam"]
-        self.img_sym_lam= self.cfg["training"]["img_sym_lam"]
-        self.vertex_sym_lam= self.cfg["training"]["vertex_sym_lam"]
+        self.normals_lam = self.cfg["training"]["normals_lam"]
+        self.img_sym_lam = self.cfg["training"]["img_sym_lam"]
+        self.vertex_sym_lam = self.cfg["training"]["vertex_sym_lam"]
+        self.semantic_dis_lam = self.cfg["training"]["semantic_dis_lam"]
 
+        self.semantic_dis_weight_path = self.cfg["training"]["semantic_dis_weight_path"]
+        self.semantic_loss_computer = SemanticDiscriminatorLoss(self.cfg, self.device)
 
     # given a mesh, mask, and pose, solves an optimization problem which encourages
     # silhouette consistency on the mask at the given pose.
@@ -59,7 +64,6 @@ class MeshRefiner():
         '''
 
         # prep inputs used during training
-
         image = rgba_image[:,:,:3]
         image_in = torch.unsqueeze(torch.tensor(image/255, dtype=torch.float).permute(2,0,1),0).to(self.device)
         mask = rgba_image[:,:,3] > 0
@@ -75,6 +79,7 @@ class MeshRefiner():
         deform_net = DeformationNetwork(self.cfg, num_vertices, self.device)
         deform_net.to(self.device)
         optimizer = optim.Adam(deform_net.parameters(), lr=self.cfg["training"]["learning_rate"])
+
 
         # optimizing  
         loss_info = pd.DataFrame()
@@ -106,10 +111,12 @@ class MeshRefiner():
             else:
                 vertex_sym_loss = torch.tensor(0).to(self.device)
 
+            semantic_dis_loss, _ = self.semantic_loss_computer.compute_loss(deformed_mesh)
+
             # optimization step on weighted losses
             total_loss = (sil_loss*self.sil_lam + l2_loss*self.l2_lam + lap_smoothness_loss*self.lap_lam +
                           normal_consistency_loss*self.normals_lam + img_sym_loss*self.img_sym_lam + 
-                          vertex_sym_loss*self.vertex_sym_lam)
+                          vertex_sym_loss*self.vertex_sym_lam + semantic_dis_loss*self.semantic_dis_lam)
             total_loss.backward()
             optimizer.step()
 
@@ -117,7 +124,7 @@ class MeshRefiner():
             iter_loss_info = {"iter":i, "sil_loss": sil_loss.item(), "l2_loss": l2_loss.item(), 
                               "lap_smoothness_loss":lap_smoothness_loss.item(),
                               "normal_consistency_loss": normal_consistency_loss.item(),"img_sym_loss": img_sym_loss.item(),
-                              "vertex_sym_loss": vertex_sym_loss.item(), 
+                              "vertex_sym_loss": vertex_sym_loss.item(), "semantic_dis_loss": semantic_dis_loss.item(),
                               "total_loss": total_loss.item()}
             loss_info = loss_info.append(iter_loss_info, ignore_index = True)
             if record_intermediate and (i % 100 == 0 or i == self.num_iterations-1):
