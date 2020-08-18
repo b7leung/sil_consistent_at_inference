@@ -21,12 +21,13 @@ from pose_est import brute_force_pose_est
 # the folder needs to have .obj meshes, and for each mesh, a corresponding .png image (with segmented, transparent bg) of size 244 x 224, with the same filename.
 # Upon completion, will return a pickle file called
 # a dict with dataframes containing training information, and save all the processed meshes
+# NOTE: Conection is that original iamges cannot have an underscore in the filename
 def postprocess_data(input_dir_img, input_dir_mesh, cfg_path, gpu_num, recompute_poses=False, meshes_group_name="postprocessed"):
     device = torch.device("cuda:"+str(gpu_num))
 
     data_paths = []
     for mesh_path in glob.glob(os.path.join(input_dir_mesh, "*.obj")):
-        if "postprocess" not in mesh_path:
+        if "_" not in mesh_path.split('/')[-1]:
             img_path = os.path.join(input_dir_img, mesh_path.split('/')[-1].replace("obj", "png"))
             if not os.path.exists(img_path):
                 raise ValueError("Couldn't find image for mesh {}.".format(mesh_path))
@@ -52,7 +53,7 @@ def postprocess_data(input_dir_img, input_dir_mesh, cfg_path, gpu_num, recompute
     # postprocessing each mesh/img in dataset
     refiner = MeshRefiner(cfg_path, device)
     loss_info = {}
-    for instance_name in cached_pred_poses:
+    for instance_name in tqdm(cached_pred_poses):
 
         input_image = np.asarray(Image.open(os.path.join(input_dir_img, instance_name+".png")))
         with torch.no_grad():
@@ -65,6 +66,7 @@ def postprocess_data(input_dir_img, input_dir_mesh, cfg_path, gpu_num, recompute
         loss_info[instance_name] = curr_loss_info
 
         save_obj(os.path.join(input_dir_mesh, instance_name + "_{}.obj".format(meshes_group_name)), curr_refined_mesh.verts_packed(), curr_refined_mesh.faces_packed())
+
 
     return loss_info
 

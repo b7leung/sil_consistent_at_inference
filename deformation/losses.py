@@ -36,6 +36,7 @@ def vertex_symmetry_loss_fast(mesh, sym_plane, device):
 # image based symmetry loss
 # renders mesh at offsets about the plane of symmetry and computes a MSE loss in pixel space
 # silhouette should normally be true; only false for debug purposes
+# TODO: zoom in distance?
 def image_symmetry_loss(mesh, sym_plane, num_azim, device, render_silhouettes=True):
     N = np.array([sym_plane])
     if np.linalg.norm(N) != 1:
@@ -43,7 +44,9 @@ def image_symmetry_loss(mesh, sym_plane, num_azim, device, render_silhouettes=Tr
 
     # camera positions for one half of the sphere
     num_views_on_half = num_azim * 2
-    azims = torch.linspace(0,180,num_azim+2)[1:-1].repeat(2)
+    #azims = torch.linspace(0,90,num_azim+2)[1:-1].repeat(2)
+    offset = 15
+    azims = torch.linspace(0+offset,90-offset,num_azim).repeat(2)
     elevs = torch.Tensor([-45 for i in range(num_azim)] + [45 for i in range(num_azim)] )
     dists = torch.ones(num_views_on_half) * 1.9
     R_half_1, T_half_1 = look_at_view_transform(dists, elevs, azims)
