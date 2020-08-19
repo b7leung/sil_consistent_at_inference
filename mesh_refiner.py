@@ -47,7 +47,6 @@ class MeshRefiner():
         self.vertex_sym_lam = self.cfg["training"]["vertex_sym_lam"]
         self.semantic_dis_lam = self.cfg["training"]["semantic_dis_lam"]
 
-        self.semantic_dis_weight_path = self.cfg["training"]["semantic_dis_weight_path"]
         self.semantic_loss_computer = SemanticDiscriminatorLoss(self.cfg, self.device)
 
     # given a mesh, mask, and pose, solves an optimization problem which encourages
@@ -110,8 +109,10 @@ class MeshRefiner():
                 vertex_sym_loss = def_losses.vertex_symmetry_loss_fast(deformed_mesh, sym_plane_normal, self.device)
             else:
                 vertex_sym_loss = torch.tensor(0).to(self.device)
-
-            semantic_dis_loss, _ = self.semantic_loss_computer.compute_loss(deformed_mesh)
+            if self.semantic_dis_lam > 0:
+                semantic_dis_loss, _ = self.semantic_loss_computer.compute_loss(deformed_mesh)
+            else:
+                semantic_dis_loss = torch.tensor(0).to(self.device)
 
             # optimization step on weighted losses
             total_loss = (sil_loss*self.sil_lam + l2_loss*self.l2_lam + lap_smoothness_loss*self.lap_lam +

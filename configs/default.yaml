@@ -1,18 +1,23 @@
+brute_force_pose_est:
+  num_azims: 20
+  num_elevs: 20
+  num_dists: 40
+
 model:
   latent_dim_pointnet: 512
   latent_dim_resnet: 256
 
 training:
-  num_iterations: 700
+  num_iterations: 600
   learning_rate: 0.00001 #[0.00001*]
 
   semantic_dis_num_render: 3
-  semantic_dis_lam: 1 # semantic discriminator loss weight
+  semantic_dis_lam: 0 # semantic discriminator loss weight
 
   img_sym_num_azim: 1 #[1*]
   img_sym_lam: 100 # image-based symmetry loss [100*]
 
-  sil_lam: 25 # silouette loss. [5*]
+  sil_lam: 20 # silouette loss. [5*]
   vertex_sym_lam: 0.1 # vertex-based symmetry loss [0.1*]
 
   l2_lam: 1 # l2 loss on delta v  [1*]
