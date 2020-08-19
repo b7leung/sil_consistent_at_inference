@@ -13,3 +13,4 @@ def weights_init_normal(m):
         m.weight.data.normal_(0.0,0.0001)
         # m.bias.data should be 0
         m.bias.data.fill_(0)
+

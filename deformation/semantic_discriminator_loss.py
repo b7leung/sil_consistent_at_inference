@@ -19,10 +19,15 @@ class SemanticDiscriminatorLoss():
         self.cfg = cfg
         self.num_render = cfg['training']['semantic_dis_num_render']
         semantic_dis_weight_path = cfg["training"]["semantic_dis_weight_path"]
-        # TODO: set weights and freeze them
+        # TODO: set weights
+                
+        # freeze weights
+        for param in self.semantic_discriminator.parameters():
+            param.requires_grad = False
     
 
     def compute_loss(self, mesh):
+        self.semantic_discriminator.eval()
 
         azims = torch.linspace(0,360,self.num_render+2)[1:-1]
         elevs = torch.Tensor([45 for i in range(self.num_render)])

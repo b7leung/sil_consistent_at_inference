@@ -146,7 +146,7 @@ def render_mesh(mesh, R, T, device, img_size=512, silhouette=False):
 
 
 # for batched rendering of many images
-def batched_render(mesh, azims, elevs, dists, batch_size, device, silhouette=False):
+def batched_render(mesh, azims, elevs, dists, batch_size, device, silhouette=False, img_size=512):
     meshes = mesh.extend(batch_size)
     num_renders = azims.shape[0]
     renders = []
@@ -160,7 +160,7 @@ def batched_render(mesh, azims, elevs, dists, batch_size, device, silhouette=Fal
         R, T = look_at_view_transform(batch_dists, batch_elevs, batch_azims) 
         if batch_azims.shape[0] != batch_size:
             meshes = mesh.extend(batch_azims.shape[0])
-        batch_renders = render_mesh(meshes, R, T, device, silhouette=silhouette)
+        batch_renders = render_mesh(meshes, R, T, device, silhouette=silhouette, img_size=img_size)
         renders.append(batch_renders)
     renders = torch.cat(renders)
     return renders

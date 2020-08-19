@@ -3,20 +3,19 @@ model:
   latent_dim_resnet: 256
 
 training:
-  num_iterations: 600
+  num_iterations: 700
   learning_rate: 0.00001 #[0.00001*]
 
-  semantic_dis_weight_path: "configs/semantic_dis_net_weights.p"
-  semantic_dis_num_render: 4
+  semantic_dis_num_render: 1
   semantic_dis_lam: 1 # semantic discriminator loss weight
 
   img_sym_num_azim: 1 #[1*]
   img_sym_lam: 100 # image-based symmetry loss [100*]
 
-  sil_lam: 5 # silouette loss. [5*]
+  sil_lam: 25 # silouette loss. [5*]
   vertex_sym_lam: 0.1 # vertex-based symmetry loss [0.1*]
 
-  l2_lam: 10 # l2 loss on delta v  [10*]
+  l2_lam: 1 # l2 loss on delta v  [1*]
   lap_lam: 10  # laplacian smoothing loss [10*]
   normals_lam: 10 # normal consistency loss [10*]
 
@@ -27,4 +26,7 @@ training:
   #semantic_emb_latents_path: occ_uda/chair_noDA_train_latent_vecs.p
 
 semantic_dis_training:
-  epochs: 200
+  real_dataset_dir: "data/semantic_dis/real_renders" # Path to folder with rendered images of real 3d models.
+  fake_dataset_dir: "data/semantic_dis/fake_renders" # Path to folder with rendered images of fake 3d models.
+  semantic_dis_weight_path: "configs/semantic_dis_net_weights.p"
+  epochs: 2
