@@ -6,7 +6,7 @@ training:
   num_iterations: 700
   learning_rate: 0.00001 #[0.00001*]
 
-  semantic_dis_num_render: 1
+  semantic_dis_num_render: 3
   semantic_dis_lam: 1 # semantic discriminator loss weight
 
   img_sym_num_azim: 1 #[1*]
@@ -28,5 +28,6 @@ training:
 semantic_dis_training:
   real_dataset_dir: "data/semantic_dis/real_renders" # Path to folder with rendered images of real 3d models.
   fake_dataset_dir: "data/semantic_dis/fake_renders" # Path to folder with rendered images of fake 3d models.
-  semantic_dis_weight_path: "configs/semantic_dis_net_weights.p"
-  epochs: 2
+  weight_path: "deformation/semantic_dis_net_weights.pt"
+  epochs: 20
+  eval_every: 5 # evaluate validation set accuracy every x epochs
