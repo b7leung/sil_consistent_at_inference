@@ -31,9 +31,8 @@ from deformation.semantic_discriminator_loss import SemanticDiscriminatorLoss
 
 class MeshRefiner():
 
-    def __init__(self, cfg_yaml_path, device):
-        self.cfg = utils.load_config(cfg_yaml_path)
-        pprint.pprint(self.cfg)
+    def __init__(self, cfg, device):
+        self.cfg = cfg
         self.device = device
 
         self.num_iterations = self.cfg["training"]["num_iterations"]

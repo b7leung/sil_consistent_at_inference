@@ -60,6 +60,7 @@ def brute_force_estimate_pose(mesh, mask, num_azims, num_elevs, num_dists, devic
         #print("highest iou: {}, azim: {}, elev: {}".format(iou_calcs[iou_highest_idx], pred_azim, pred_elev))
 
         # interpolating between rendered distances to find best distance for predicted azimuth and elevation
+        # TODO: add edge case where no render fits in frame
         azims = torch.ones(num_dists) * pred_azim
         elevs = torch.ones(num_dists) * pred_elev
         dists = torch.linspace(0.5, 3, num_dists)
@@ -135,6 +136,8 @@ def rgba_obj_in_frame(rgba_img, px_border_req=1):
     # TODO: check height, width
     img_height = mask.shape[0]
     img_width = mask.shape[1]
+    if len(objs) == 0:
+        return False
     # upper left, lower right
     upper_left = [objs[0][0].start, objs[0][1].start]
     lower_right = [objs[0][0].stop, objs[0][1].stop]

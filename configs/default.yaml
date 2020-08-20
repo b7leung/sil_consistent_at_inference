@@ -1,3 +1,7 @@
+dataset:
+  input_dir_mesh: "data/test_dataset" # Path to folder with meshes to postprocess.
+  input_dir_img: "data/test_dataset" # Path to folder with images for meshes.
+
 brute_force_pose_est:
   num_azims: 20
   num_elevs: 20

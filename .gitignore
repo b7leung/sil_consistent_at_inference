@@ -3,3 +3,4 @@ notebooks/__pycache__
 *.swp
 data/
 __pycache__/
+stderr_test.py
