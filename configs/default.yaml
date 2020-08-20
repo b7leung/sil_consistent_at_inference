@@ -12,7 +12,7 @@ model:
   latent_dim_resnet: 256
 
 training:
-  num_iterations: 600
+  num_iterations: 700
   learning_rate: 0.00001 #[0.00001*]
 
   semantic_dis_num_render: 3

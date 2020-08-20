@@ -26,7 +26,8 @@ def predict_pose(cfg, device, meshes_to_process):
     num_dists = cfg['brute_force_pose_est']['num_dists']
 
     cached_pred_poses = {}
-    for instance_name in tqdm(meshes_to_process):
+    tqdm_out = utils.TqdmPrintEvery()
+    for instance_name in tqdm(meshes_to_process, file=tqdm_out):
         img_path = os.path.join(input_dir_img, instance_name + ".png")
         mesh_path = os.path.join(input_dir_mesh, instance_name + ".obj")
         mask = np.asarray(Image.open(img_path))[:,:,3] > 0
@@ -46,7 +47,8 @@ def postprocess_data(cached_pred_poses, output_dir_mesh, cfg, device):
     # postprocessing each mesh/img in dataset
     refiner = MeshRefiner(cfg, device)
     loss_info = {}
-    for instance_name in tqdm(cached_pred_poses):
+    tqdm_out = utils.TqdmPrintEvery()
+    for instance_name in tqdm(cached_pred_poses, file=tqdm_out):
 
         input_image = np.asarray(Image.open(os.path.join(input_dir_img, instance_name+".png")))
         with torch.no_grad():
@@ -111,13 +113,14 @@ if __name__ == "__main__":
     # precomputing poses for this batch if necessary
     pred_poses_path = os.path.join(output_dir_mesh, "pred_poses.p")
     if args.recompute_poses or not os.path.exists(pred_poses_path):
-        print("Predicting Poses...")
+        print("\nPredicting Poses...\n")
         cached_pred_poses = predict_pose(cfg, device, curr_batch_instances)
         pickle.dump(cached_pred_poses, open(pred_poses_path,"wb"))
     else:
         cached_pred_poses = pickle.load(open(pred_poses_path, "rb"))
 
     # postprocessing meshes
+    print("\nPerforming optimization-based postprocessing on mesh reconstructions...\n")
     loss_info = postprocess_data(cached_pred_poses, output_dir_mesh, cfg, device)
     # TODO: save loss info
 

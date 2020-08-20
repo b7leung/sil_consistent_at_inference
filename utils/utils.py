@@ -1,6 +1,7 @@
 import os
 import sys
 import yaml
+import io
 
 import torch
 from PIL import Image
@@ -164,3 +165,18 @@ def batched_render(mesh, azims, elevs, dists, batch_size, device, silhouette=Fal
         renders.append(batch_renders)
     renders = torch.cat(renders)
     return renders
+
+
+class TqdmPrintEvery(io.StringIO):
+    """
+        Output stream for TQDM which will output to stdout. Used for nautilus jobs.
+    """
+    def __init__(self):
+        super(TqdmPrintEvery, self).__init__()
+        self.buf = None
+
+    def write(self,buf):
+        self.buf = buf
+
+    def flush(self):
+        print(self.buf)
