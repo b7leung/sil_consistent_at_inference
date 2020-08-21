@@ -23,10 +23,12 @@ class SemanticDiscriminatorLoss():
 
     def compute_loss(self, mesh):
         self.semantic_discriminator.eval()
-
+        # TODO: check; need to match render settings for discriminator training set
+        # 0.,  45.,  90., 135., 180., 225., 270., 315.
+        #azims = torch.linspace(0, 360, 8+1)[:-1]
         azims = torch.linspace(0,360,self.num_render+2)[1:-1]
-        elevs = torch.Tensor([45 for i in range(self.num_render)])
-        dists = torch.ones(self.num_render) * 1.9
+        elevs = torch.Tensor([25 for i in range(self.num_render)])
+        dists = torch.ones(self.num_render) * 1.7
         R, T = look_at_view_transform(dists, elevs, azims)
         meshes = mesh.extend(self.num_render)
         renders = utils.render_mesh(meshes, R, T, self.device, img_size=224, silhouette=True)

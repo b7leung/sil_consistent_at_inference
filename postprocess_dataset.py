@@ -40,7 +40,7 @@ def predict_pose(cfg, device, meshes_to_process):
 
 
 # postprocesses imgs/meshes based on a dict of cached predicted poses (the output of predict_pose)
-def postprocess_data(cached_pred_poses, output_dir_mesh, cfg, device):
+def postprocess_data(cached_pred_poses, output_dir_mesh, cfg, device, recompute_meshes):
     input_dir_img = cfg['dataset']['input_dir_img']
     input_dir_mesh = cfg['dataset']['input_dir_mesh']
 
@@ -49,17 +49,18 @@ def postprocess_data(cached_pred_poses, output_dir_mesh, cfg, device):
     loss_info = {}
     tqdm_out = utils.TqdmPrintEvery()
     for instance_name in tqdm(cached_pred_poses, file=tqdm_out):
+        curr_obj_path = os.path.join(output_dir_mesh, instance_name+".obj")
+        if recompute_meshes or not os.path.exists(curr_obj_path):
+            input_image = np.asarray(Image.open(os.path.join(input_dir_img, instance_name+".png")))
+            with torch.no_grad():
+                mesh = utils.load_untextured_mesh(os.path.join(input_dir_mesh, instance_name+".obj"), device)
+            pred_dist = cached_pred_poses[instance_name]['dist']
+            pred_elev = cached_pred_poses[instance_name]['elev']
+            pred_azim = cached_pred_poses[instance_name]['azim']
 
-        input_image = np.asarray(Image.open(os.path.join(input_dir_img, instance_name+".png")))
-        with torch.no_grad():
-            mesh = utils.load_untextured_mesh(os.path.join(input_dir_mesh, instance_name+".obj"), device)
-        pred_dist = cached_pred_poses[instance_name]['dist']
-        pred_elev = cached_pred_poses[instance_name]['elev']
-        pred_azim = cached_pred_poses[instance_name]['azim']
-
-        curr_refined_mesh, curr_loss_info = refiner.refine_mesh(mesh, input_image, pred_dist, pred_elev, pred_azim)
-        save_obj(os.path.join(output_dir_mesh, instance_name+".obj"), curr_refined_mesh.verts_packed(), curr_refined_mesh.faces_packed())
-        loss_info[instance_name] = curr_loss_info
+            curr_refined_mesh, curr_loss_info = refiner.refine_mesh(mesh, input_image, pred_dist, pred_elev, pred_azim)
+            save_obj(curr_obj_path, curr_refined_mesh.verts_packed(), curr_refined_mesh.faces_packed())
+            loss_info[instance_name] = curr_loss_info
 
     return loss_info
 
@@ -83,7 +84,8 @@ if __name__ == "__main__":
     parser.add_argument('--num_batches', type=int, default=1, help='number of batches to split dataset into')
     parser.add_argument('--gpu', type=int, default=0, help='Gpu number to use.')
     parser.add_argument('--name', type=str, default="processed", help='name of experiment')
-    parser.add_argument('--recompute_poses', action='store_true', help='Recompute the poses')
+    parser.add_argument('--recompute_poses', action='store_true', help='Recompute the poses, even if there is a precomputed pose cache.')
+    parser.add_argument('--recompute_meshes', action='store_true', help='Recompute the meshes, even for ones which already exist.')
     args = parser.parse_args()
 
     if args.batch_i > args.num_batches or args.batch_i <= 0:
@@ -121,6 +123,6 @@ if __name__ == "__main__":
 
     # postprocessing meshes
     print("\nPerforming optimization-based postprocessing on mesh reconstructions...\n")
-    loss_info = postprocess_data(cached_pred_poses, output_dir_mesh, cfg, device)
+    loss_info = postprocess_data(cached_pred_poses, output_dir_mesh, cfg, device, args.recompute_meshes)
     # TODO: save loss info
 
