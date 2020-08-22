@@ -31,24 +31,30 @@ def render(INPUT_MESH_DIR, OUTPUT_RENDER_DIR, silhouette, device):
         
     obj_paths = list(Path(INPUT_MESH_DIR).rglob('*.obj'))
 
+    num_errors = 0
     tqdm_out = utils.TqdmPrintEvery()
     for model_path in tqdm(obj_paths, file=tqdm_out):
-        with torch.no_grad():
-            mesh = utils.load_untextured_mesh(model_path, device)
-            renders = utils.batched_render(mesh, azims, elevs, dists, batch_size, device, silhouette, img_size)
-            for i, render in enumerate(renders):
-                
-                if silhouette:
-                    # turn into hard 0/1 siluette
-                    img_render = (render[ ..., 3].cpu().numpy() > 0).astype(int) * 255
-                else:
-                    img_render = (render[ ..., :3].cpu().numpy()* 255).astype(int) 
+        print("number of errors so far: {}".format(num_errors))
+        try:
+            with torch.no_grad():
+                mesh = utils.load_untextured_mesh(model_path, device)
+                renders = utils.batched_render(mesh, azims, elevs, dists, batch_size, device, silhouette, img_size)
+                for i, render in enumerate(renders):
                     
-                model_name = str(model_path).replace(INPUT_MESH_DIR,'').replace('/','_').replace(".obj","")
-                if model_name[0] == '_': model_name = model_name[1:]
-                
-                render_filename = "{}_{}.jpg".format(model_name, i)
-                cv2.imwrite(os.path.join(OUTPUT_RENDER_DIR,render_filename), img_render)
+                    if silhouette:
+                        # turn into hard 0/1 siluette
+                        img_render = (render[ ..., 3].cpu().numpy() > 0).astype(int) * 255
+                    else:
+                        img_render = (render[ ..., :3].cpu().numpy()* 255).astype(int) 
+                        
+                    model_name = str(model_path).replace(INPUT_MESH_DIR,'').replace('/','_').replace(".obj","")
+                    if model_name[0] == '_': model_name = model_name[1:]
+                    
+                    render_filename = "{}_{}.jpg".format(model_name, i)
+                    cv2.imwrite(os.path.join(OUTPUT_RENDER_DIR,render_filename), img_render)
+        except:
+            num_errors += 1
+            continue
 
 
     

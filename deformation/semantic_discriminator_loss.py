@@ -15,7 +15,7 @@ class SemanticDiscriminatorLoss():
         self.num_render = cfg['training']['semantic_dis_num_render']
 
         self.semantic_discriminator = SemanticDiscriminatorNetwork(cfg, device)
-        self.semantic_discriminator.load_state_dict(torch.load(cfg["semantic_dis_training"]["weight_path"]))
+        self.semantic_discriminator.load_state_dict(torch.load(cfg["training"]["semantic_dis_weight_path"]))
         self.semantic_discriminator.to(device)
         for param in self.semantic_discriminator.parameters():
             param.requires_grad = False
@@ -25,7 +25,6 @@ class SemanticDiscriminatorLoss():
         self.semantic_discriminator.eval()
         # TODO: check; need to match render settings for discriminator training set
         # 0.,  45.,  90., 135., 180., 225., 270., 315.
-        #azims = torch.linspace(0, 360, 8+1)[:-1]
         azims = torch.linspace(0,360,self.num_render+2)[1:-1]
         elevs = torch.Tensor([25 for i in range(self.num_render)])
         dists = torch.ones(self.num_render) * 1.7

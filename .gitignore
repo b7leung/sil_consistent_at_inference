@@ -4,3 +4,5 @@ notebooks/__pycache__
 data/
 __pycache__/
 stderr_test.py
+out/
+data_prep_tools/ManifoldPlus/

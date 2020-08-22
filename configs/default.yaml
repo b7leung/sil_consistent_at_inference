@@ -1,6 +1,4 @@
 dataset:
-  #input_dir_mesh: "data/test_dataset" # Path to folder with meshes to postprocess.
-  #input_dir_img: "data/test_dataset" # Path to folder with images for meshes.
   input_dir_mesh: "data/onet_chair_pix3d_dann_simplified" # Path to folder with meshes to postprocess.
   input_dir_img: "data/img_pix3d_chair/chair" # Path to folder with images for meshes.
 
@@ -17,6 +15,7 @@ training:
   num_iterations: 700
   learning_rate: 0.00001 #[0.00001*]
 
+  semantic_dis_weight_path: "out/2020_08_22--04_19_21_semantic_discrim/weights_epoch_1.pt"
   semantic_dis_num_render: 3
   semantic_dis_lam: 0 # semantic discriminator loss weight
 
@@ -37,8 +36,8 @@ training:
   #semantic_emb_latents_path: occ_uda/chair_noDA_train_latent_vecs.p
 
 semantic_dis_training:
-  #real_dataset_dir: "data/semantic_dis/real_renders" # Path to folder with rendered images of real 3d models.
-  #fake_dataset_dir: "data/semantic_dis/fake_renders" # Path to folder with rendered images of fake 3d models.
-  weight_path: "deformation/semantic_dis_net_weights.pt"
-  epochs: 20
-  eval_every: 5 # evaluate validation set accuracy every x epochs
+  real_dataset_dir: "data/semantic_dis_sil/real_renders" # Path to folder with rendered images of real 3d models.
+  fake_dataset_dir: "data/semantic_dis_sil/fake_renders" # Path to folder with rendered images of fake 3d models.
+  output_dir: "out" # Path to folder to output saved weights and training pickle
+  epochs: 10
+  eval_every: 1 # evaluate validation set accuracy every x epochs

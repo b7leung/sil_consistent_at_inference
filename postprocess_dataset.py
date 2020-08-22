@@ -92,7 +92,7 @@ if __name__ == "__main__":
             raise ValueError("batch_i cannot be greater than num_batches nor less than 1")
 
     device = torch.device("cuda:"+str(args.gpu))
-    cfg = utils.load_config(args.cfg_path)
+    cfg = utils.load_config(args.cfg_path, "configs/default.yaml")
     input_dir_img = cfg['dataset']['input_dir_img']
     input_dir_mesh = cfg['dataset']['input_dir_mesh']
 
@@ -124,5 +124,5 @@ if __name__ == "__main__":
     # postprocessing meshes
     print("\nPerforming optimization-based postprocessing on mesh reconstructions...\n")
     loss_info = postprocess_data(cached_pred_poses, output_dir_mesh, cfg, device, args.recompute_meshes)
-    # TODO: save loss info
+    pickle.dump(loss_info, open(os.path.join(output_dir_mesh, "loss_info.p"), "wb"))
 
