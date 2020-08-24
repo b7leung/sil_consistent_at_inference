@@ -19,7 +19,7 @@ from deformation.semantic_discriminator_dataset import SemanticDiscriminatorData
 from utils import utils, network_utils
 
 
-# data should be shapenet renders, 224 x224 jpgs w/ white bg
+# data should be shapenet renders, 224x224 jpgs w/ white bg
 def train(cfg_path, gpu_num, experiment_name="semantic_discrim", light=False, label_noise=0):
 
     device = torch.device("cuda:"+str(gpu_num))
@@ -84,6 +84,7 @@ def train(cfg_path, gpu_num, experiment_name="semantic_discrim", light=False, la
             pickle.dump(df_dict, open(os.path.join(training_output_dir, "training_info.p"),"wb"))
 
         # computing validation set accuracy
+        # TODO: move this to its own independent method
         print("Computing Validation Set Accuracy...")
         if epoch_i % cfg['semantic_dis_training']['eval_every'] == 0:
             val_accuracies = []
