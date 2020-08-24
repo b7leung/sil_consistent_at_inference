@@ -78,7 +78,6 @@ class MeshRefiner():
         deform_net.to(self.device)
         optimizer = optim.Adam(deform_net.parameters(), lr=self.cfg["training"]["learning_rate"])
 
-
         # optimizing  
         loss_info = pd.DataFrame()
         deformed_meshes = []

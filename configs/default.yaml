@@ -15,7 +15,7 @@ training:
   num_iterations: 700
   learning_rate: 0.00001 #[0.00001*]
 
-  semantic_dis_weight_path: "out/2020_08_22--04_19_21_semantic_discrim/weights_epoch_1.pt"
+  semantic_dis_weight_path: "out/2020_08_24--06_45_44_dcgan_dis_drop8/weights_epoch_3.pt"
   semantic_dis_num_render: 3
   semantic_dis_lam: 0 # semantic discriminator loss weight
 
@@ -28,12 +28,6 @@ training:
   l2_lam: 1 # l2 loss on delta v  [1*]
   lap_lam: 10  # laplacian smoothing loss [10*]
   normals_lam: 10 # normal consistency loss [10*]
-
-  # depreciated
-  #semantic_emb_lam: 0
-  #semantic_emb_weights_path: data/occnet_pretrained_weights/model_best.pt
-  #semantic_emb_cfg_path: occ_uda/configs/domain_adaptation/chair_noDA.yaml
-  #semantic_emb_latents_path: occ_uda/chair_noDA_train_latent_vecs.p
 
 semantic_dis_training:
   real_dataset_dir: "data/semantic_dis_sil/real_renders" # Path to folder with rendered images of real 3d models.

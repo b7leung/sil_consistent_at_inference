@@ -168,15 +168,11 @@ def batched_render(mesh, azims, elevs, dists, batch_size, device, silhouette=Fal
 
 
 class TqdmPrintEvery(io.StringIO):
-    """
-        Output stream for TQDM which will output to stdout. Used for nautilus jobs.
-    """
+    #Output stream for TQDM which will output to stdout. Used for nautilus jobs.
     def __init__(self):
         super(TqdmPrintEvery, self).__init__()
         self.buf = None
-
     def write(self,buf):
         self.buf = buf
-
     def flush(self):
         print(self.buf)
