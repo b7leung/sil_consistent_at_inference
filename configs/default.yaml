@@ -2,6 +2,7 @@ dataset:
   input_dir_mesh: "data/onet_chair_pix3d_dann_simplified" # Path to folder with meshes to postprocess.
   input_dir_img: "data/img_pix3d_chair/chair" # Path to folder with images for meshes.
 
+
 brute_force_pose_est:
   num_azims: 20
   num_elevs: 20
@@ -32,6 +33,10 @@ training:
 semantic_dis_training:
   real_dataset_dir: "data/semantic_dis_sil/real_renders" # Path to folder with rendered images of real 3d models.
   fake_dataset_dir: "data/semantic_dis_sil/fake_renders" # Path to folder with rendered images of fake 3d models.
+  input_dir_pose: "data/onet_chair_pix3d_dann_simplified_processed/pred_poses.p" # path to predicted pose cache dict corresponding to mesh/imgs in input_dir_mesh and input_dir_img
+  dataset_meshes_list_path: "data/onet_chair_pix3d_dann_simplified/1502.lst" # path to a file which lists the meshes/imgs to use from input_dir_mesh and input_dir_img. Meshes have to have the same # vertices.
+
   output_dir: "out" # Path to folder to output saved weights and training pickle
   epochs: 10
   eval_every: 1 # evaluate validation set accuracy every x epochs
+  batch_size: 4

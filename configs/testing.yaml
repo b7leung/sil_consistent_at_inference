@@ -1,6 +1,6 @@
 dataset:
-  input_dir_mesh: "data/test_dataset_one" # Path to folder with meshes to postprocess.
-  input_dir_img: "data/test_dataset_one" # Path to folder with images for meshes.
+  input_dir_mesh: "data/test_dataset" # Path to folder with meshes to postprocess.
+  input_dir_img: "data/test_dataset" # Path to folder with images for meshes.
 
 training:
   num_iterations: 450
@@ -13,7 +13,7 @@ training:
   img_sym_num_azim: 1 #[1*]
   img_sym_lam: 100 # image-based symmetry loss [100*]
 
-  sil_lam: 5 # silouette loss. [5*]
+  sil_lam: 20 # silouette loss. [5*]
   vertex_sym_lam: 0.1 # vertex-based symmetry loss [0.1*]
 
   l2_lam: 1 # l2 loss on delta v  [1*]
