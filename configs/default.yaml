@@ -18,7 +18,7 @@ training:
 
   semantic_dis_weight_path: "out/2020_08_24--06_45_44_dcgan_dis_drop8/weights_epoch_3.pt"
   semantic_dis_num_render: 3
-  semantic_dis_lam: 0 # semantic discriminator loss weight
+  semantic_dis_lam: 1 # semantic discriminator loss weight
 
   img_sym_num_azim: 1 #[1*]
   img_sym_lam: 100 # image-based symmetry loss [100*]
@@ -27,8 +27,8 @@ training:
   vertex_sym_lam: 0.1 # vertex-based symmetry loss [0.1*]
 
   l2_lam: 1 # l2 loss on delta v  [1*]
-  lap_lam: 10  # laplacian smoothing loss [10*]
-  normals_lam: 10 # normal consistency loss [10*]
+  lap_smoothness_lam: 10  # laplacian smoothing loss [10*]
+  normal_consistency_lam: 10 # normal consistency loss [10*]
 
 semantic_dis_training:
   real_dataset_dir: "data/semantic_dis_sil/real_renders" # Path to folder with rendered images of real 3d models.
@@ -40,3 +40,5 @@ semantic_dis_training:
   epochs: 10
   eval_every: 1 # evaluate validation set accuracy every x epochs
   batch_size: 4
+
+  mesh_num_verts: 1502

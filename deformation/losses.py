@@ -15,7 +15,7 @@ from utils import utils
 # args:
 #   Sym_plane: list of 3 numbers
 # https://math.stackexchange.com/questions/693414/reflection-across-the-plane
-def vertex_symmetry_loss_fast(mesh, sym_plane, device):
+def vertex_symmetry_loss(mesh, sym_plane, device):
     N = np.array([sym_plane])
     if np.linalg.norm(N) != 1:
         raise ValueError("sym_plane needs to be a unit normal")
@@ -31,6 +31,17 @@ def vertex_symmetry_loss_fast(mesh, sym_plane, device):
     avg_sym_loss = F.l1_loss(sym_points, torch.squeeze(mesh_verts[indices],1), reduction='sum')
 
     return avg_sym_loss
+
+
+# naive batched version of vertex symmetry loss
+# assumes all meshes use the same sym_plane
+def vertex_symmetry_loss_batched(meshes, sym_plane, device):
+    total_vtx_sym_loss = 0
+    for mesh in meshes:
+        curr_sym_loss = vertex_symmetry_loss(mesh, sym_plane, device)
+        total_vtx_sym_loss += curr_sym_loss
+    avg_vtx_sym_loss = total_vtx_sym_loss / len(meshes)
+    return avg_vtx_sym_loss
 
 
 # image based symmetry loss
@@ -81,4 +92,13 @@ def image_symmetry_loss(mesh, sym_plane, num_azim, device, render_silhouettes=Tr
     return sym_loss, sym_triples
     
 
+# naive batched version of image symmetry loss; averages image symmetry loss for each mesh in batch
+# assumes all meshes use the same sym_plane
+def image_symmetry_loss_batched(meshes, sym_plane, num_azim, device, render_silhouettes=True):
+    total_img_sym_loss = 0
+    for mesh in meshes:
+        curr_sym_loss, _ = image_symmetry_loss(mesh, sym_plane, num_azim, device, render_silhouettes)
+        total_img_sym_loss += curr_sym_loss
+    avg_img_sym_loss = total_img_sym_loss / len(meshes)
+    return avg_img_sym_loss
 

@@ -7,22 +7,35 @@ from .semantic_discriminator_net import SemanticDiscriminatorNetwork
 from utils import utils
 
 
-def compute_sem_dis_loss(self, mesh, num_render, semantic_discriminator_net, device):
+# computes semantic discriminator loss on a batch of meshes. Outputs [b,1] tensor, where b is batch size
+# TODO: currently only works on silhouette; generalize it to rgb renders
+def compute_sem_dis_logits(meshes_batch, num_render, semantic_discriminator_net, device):
     # need to make sure this matches render settings for discriminator training set
     # TODO: alternatively, randomize the angles each time?
     # 0.,  45.,  90., 135., 180., 225., 270., 315. 
-    azims = torch.linspace(0, 360, num_render+1)[:-1]
-    elevs = torch.Tensor([25 for i in range(num_render)])
-    dists = torch.ones(num_render) * 1.7
+    num_meshes = len(meshes_batch)
+    azims = torch.linspace(0, 360, num_render+1)[:-1].repeat(num_meshes)
+    elevs = torch.Tensor([25 for i in range(num_meshes * num_render)])
+    dists = torch.ones(num_meshes * num_render) * 1.7
     R, T = look_at_view_transform(dists, elevs, azims)
 
-    meshes = mesh.extend(num_render)
-    renders = utils.render_mesh(meshes, R, T, device, img_size=224, silhouette=True)
+    extended_meshes = meshes_batch.extend(num_render)
+    # TODO: change to batched render?
+    renders = utils.render_mesh(extended_meshes, R, T, device, img_size=64, silhouette=True)
     # converting from [num_render, 224, 224, 4] silhouette render (only channel 4 has info) 
     # to [num_render, 224, 224, 3] rgb image (black/white)
     renders_binary_rgb = torch.unsqueeze(renders[...,3], 3).repeat(1,1,1,3)
 
-    loss = torch.sigmoid(semantic_discriminator_net(renders_binary_rgb.permute(0,3,1,2)))
+    logits = semantic_discriminator_net(renders_binary_rgb.permute(0,3,1,2))
+
+    return logits, renders_binary_rgb
+
+
+# computes semantic discriminator loss on a batch of meshes
+def compute_sem_dis_loss(meshes_batch, num_render, semantic_discriminator_net, device):
+
+    logits, renders_binary_rgb = compute_sem_dis_loss(meshes_batch, num_render, semantic_discriminator_net, device)
+    loss = torch.sigmoid(logits)
     loss = torch.mean(loss)
 
     return loss, renders_binary_rgb
