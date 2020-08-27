@@ -31,8 +31,10 @@ import pandas as pd
 from utils import utils, network_utils
 from deformation.deformation_net import DeformationNetwork
 import deformation.losses as def_losses
-from deformation.semantic_discriminator_loss import SemanticDiscriminatorLoss, compute_sem_dis_loss
+from deformation.semantic_discriminator_loss import SemanticDiscriminatorLoss, compute_sem_dis_loss, compute_sem_dis_logits
 from adversarial.datasets import GenerationDataset, ShapenetRendersDataset
+from deformation.semantic_discriminator_net import SemanticDiscriminatorNetwork
+from adversarial.datasets import gen_data_collate
 
 
 class AdversarialDiscriminatorTrainer():
@@ -43,149 +45,172 @@ class AdversarialDiscriminatorTrainer():
 
         self.batch_size = self.cfg["semantic_dis_training"]["batch_size"]
         self.total_training_iters = 2
-        self.num_batches_dis_train = 5
-        self.num_batches_gen_train = 5
-        self.mesh_num_vertices = 1498
+        self.num_batches_dis_train = 2
+        self.num_batches_gen_train = 2
+        self.mesh_num_vertices = self.cfg["semantic_dis_training"]["mesh_num_verts"]
         self.label_noise = 0
-        self.semantic_dis_loss_num_render = 8
+        self.semantic_dis_loss_num_render = 2
 
-        self.training_output_dir = os.path.join(cfg['semantic_dis_training']['output_dir'], "{}_{}".format(time.strftime("%Y_%m_%d--%H_%M_%S"), exp_name))
+        self.training_output_dir = os.path.join(self.cfg['semantic_dis_training']['output_dir'], "{}_{}".format(time.strftime("%Y_%m_%d--%H_%M_%S"), exp_name))
         if not os.path.exists(self.training_output_dir):
             os.makedirs(self.training_output_dir)
         self.tqdm_out = utils.TqdmPrintEvery()
+
+        # for adding noise to training labels. Real images have label 1, fake images has label 0 
+        self.real_labels_dist = torch.distributions.Uniform(torch.tensor([1.0-self.label_noise]), torch.tensor([1.0]))
+        self.fake_labels_dist = torch.distributions.Uniform(torch.tensor([0.0]), torch.tensor([0.0+self.label_noise]))
 
 
     def train(self):
 
         # setting up dataloaders
         # https://stackoverflow.com/questions/51444059/how-to-iterate-over-two-dataloaders-simultaneously-using-pytorch
-        generation_dataset = GenerationDataset(cfg, self.device)
-        generation_loader = torch.utils.data.DataLoader(generation_dataset, batch_size=self.batch_size, num_workers=4, shuffle=True)
-        shapenet_renders_dataset = ShapenetRendersDataset(cfg)
-        shapenet_renders_loader = torch.utils.data.DataLoader(shapenet_renders_dataset, batch_size=self.batch_size, num_workers=4, shuffle=True)
+        generation_dataset = GenerationDataset(self.cfg, self.device)
+        generation_loader = torch.utils.data.DataLoader(generation_dataset, batch_size=self.batch_size, num_workers=4, shuffle=True, collate_fn=gen_data_collate)
+        # shapenet batch size is mesh batch size x number of renders for the semantic loss
+        shapenet_renders_dataset = ShapenetRendersDataset(self.cfg)
+        shapenet_renders_loader = torch.utils.data.DataLoader(shapenet_renders_dataset, batch_size=self.batch_size * self.semantic_dis_loss_num_render, num_workers=4, shuffle=True)
 
         # setting up networks and optimizers
         deform_net = DeformationNetwork(self.cfg, self.mesh_num_vertices, self.device)
         deform_net.to(self.device)
         deform_optimizer = optim.Adam(deform_net.parameters(), lr=self.cfg["training"]["learning_rate"])
 
-        semantic_dis_net = SemanticDiscriminatorNetwork(cfg)
+        semantic_dis_net = SemanticDiscriminatorNetwork(self.cfg)
         semantic_dis_net.to(self.device)
         dis_optimizer = optim.Adam(semantic_dis_net.parameters(), lr=0.00001, weight_decay=1e-2)
 
-        # for adding noise to training labels
-        # real images have label 1, fake images has label 0 
-        real_labels_dist = torch.distributions.Uniform(torch.tensor([1.0-self.label_noise]), torch.tensor([1.0]))
-        fake_labels_dist = torch.distributions.Uniform(torch.tensor([0.0]), torch.tensor([0.0+self.label_noise]))
-
         # training generative deformation network and discriminator in an alternating, GAN style
-        for iter_i in tqdm(range(self.total_training_iters), file=self.tqdm_out):
+        training_df = {"deform_net_gen": pd.DataFrame(), "semantic_dis": pd.DataFrame()}
+        for iter_idx in tqdm(range(self.total_training_iters), file=self.tqdm_out):
 
             # training discriminator; generator weights are frozen
             # =/=/=/=/=/=/=/=/=/=/=/=/=/=/=/=/=/=/=/=/=/=/=/=/=/=/=/=/=/=/=/=/=/=/=/=/=/=/=/=/=/=/=/=/=/=/=/=/=/=/=/=/=/=/=/=/=/=/=/=/=/=/=/
             for param in semantic_dis_net.parameters(): param.requires_grad = True
             for param in deform_net.parameters(): param.requires_grad = False
+            with tqdm(total=self.num_batches_dis_train, file=self.tqdm_out):
+                for batch_idx, (gen_batch, real_render_batch) in enumerate(zip(generation_loader, shapenet_renders_loader)):
+                    if batch_idx >= self.num_batches_dis_train: break
 
-            generation_iter = iter(generation_loader)
-            shapenet_renders_iter = iter(shapenet_renders_loader)
-            for batch_idx in tqdm(range(self.num_batches_dis_train), file=self.tqdm_out):
+                    semantic_dis_net.train()
+                    deform_net.eval() # not sure if supposed to set this
+                    dis_optimizer.zero_grad()
 
-                semantic_dis_net.train()
-                deform_net.eval() # not sure if supposed to set this
-                dis_optimizer.zero_grad()
+                    real_render_batch = real_render_batch.to(self.device)
+                    pred_logits_real = semantic_dis_net(real_render_batch)
 
-                real_render_batch = next(shapenet_renders_iter).to(self.device)
-                pred_logits_real = semantic_dis_net(real_render_batch)
+                    gen_batch_meshes = gen_batch["mesh"].to(self.device)
+                    gen_batch_vertices = gen_batch["mesh_verts"].to(self.device)
+                    gen_batch_images = gen_batch["image"].to(self.device)
+                    gen_batch_poses = gen_batch["pose"].to(self.device)
+                    _, deformed_meshes  = self.refine_mesh_batched(deform_net, semantic_dis_net, gen_batch_meshes, gen_batch_vertices, 
+                                                                gen_batch_images, gen_batch_poses, None, compute_losses=False)
+                    pred_logits_fake, _ = compute_sem_dis_logits(deformed_meshes, self.semantic_dis_loss_num_render, semantic_dis_net, self.device)
 
-                gen_batch = next(generation_iter)
-                gen_batch_vertices = gen_batch["mesh_verts"].to(self.device)
-                gen_batch_images = gen_batch["image"].to(self.device)
-                gen_batch_poses = gen_batch["pose"].to(self.device)
-                deformed_meshes  = self.refine_mesh_batched(deform_net, semantic_dis_net, gen_batch_vertices, 
-                                                            gen_batch_images, gen_batch_poses, compute_losses=False)
-                # TODO: fix this to turn into logits, not sigmoid
-                pred_logits_fake = compute_sem_dis_loss(deformed_meshes, self.semantic_dis_loss_num_render, semantic_dis_net, self.device)
+                    batch_size = real_render_batch.shape[0]
+                    real_labels = self.real_labels_dist.sample((batch_size,1)).squeeze(2).to(self.device)
+                    fake_labels = self.fake_labels_dist.sample((batch_size,1)).squeeze(2).to(self.device)
 
-                batch_size = real_render_batch.shape[0]
-                real_labels = real_labels_dist.sample((batch_size,1)).squeeze(2).to(self.device)
-                fake_labels = fake_labels_dist.sample((batch_size,1)).squeeze(2).to(self.device)
+                    dis_loss = F.binary_cross_entropy_with_logits(pred_logits_real, real_labels) + \
+                        F.binary_cross_entropy_with_logits(pred_logits_fake, fake_labels)
+                    
+                    dis_loss.backward()
+                    dis_optimizer.step()
+                    curr_train_info = {"iteration": iter_idx, "batch": batch_idx, "dis_loss": dis_loss.item()}
+                    training_df["semantic_dis"] = training_df["semantic_dis"].append(curr_train_info, ignore_index = True)
 
-                dis_loss = F.binary_cross_entropy_with_logits(pred_logits_real, real_labels) + \
-                    F.binary_cross_entropy_with_logits(pred_logits_fake, fake_labels)
-                
-                dis_loss.backward()
-                dis_optimizer.step()
             
-            continue
             # training generator; discriminator weights are frozen
             # =/=/=/=/=/=/=/=/=/=/=/=/=/=/=/=/=/=/=/=/=/=/=/=/=/=/=/=/=/=/=/=/=/=/=/=/=/=/=/=/=/=/=/=/=/=/=/=/=/=/=/=/=/=/=/=/=/=/=/=/=/=/=/
             for param in semantic_dis_net.parameters(): param.requires_grad = False
             for param in deform_net.parameters(): param.requires_grad = True
-            for gen_batch in tqdm(generation_loader[:self.num_batches_gen_train], file=self.tqdm_out):
-                deform_net.train()
-                semantic_dis_net.eval()
-                deform_optimizer.zero_grad()
-                deform_loss_dict, _ = self.refine_mesh_batched(deform_net, semantic_dis_net, gen_batch)
-                # TODO: make sure loss is correct (follows minimax loss)
-                total_loss = sum([deform_loss_dict[loss_name] * cfg['training'][loss_name.replace("loss", "lam")] for loss_name in deform_loss_dict])
-                total_loss.backward()
-                deform_optimizer.step()
+            with tqdm(total=self.num_batches_gen_train, file=self.tqdm_out):
+                for batch_idx, gen_batch in enumerate(generation_loader):
+                    if batch_idx >= self.num_batches_gen_train: break
+
+                    deform_net.train()
+                    semantic_dis_net.eval()
+                    deform_optimizer.zero_grad()
+
+                    gen_batch_meshes = gen_batch["mesh"].to(self.device)
+                    gen_batch_vertices = gen_batch["mesh_verts"].to(self.device)
+                    gen_batch_images = gen_batch["image"].to(self.device)
+                    gen_batch_poses = gen_batch["pose"].to(self.device)
+                    gen_batch_masks = gen_batch["mask"].to(self.device)
+
+                    loss_dict, _ = self.refine_mesh_batched(deform_net, semantic_dis_net, gen_batch_meshes, gen_batch_vertices, 
+                                                                gen_batch_images, gen_batch_poses, gen_batch_masks, compute_losses=True)
+                    total_loss = sum([loss_dict[loss_name] * self.cfg['training'][loss_name.replace("loss", "lam")] for loss_name in loss_dict])
+
+                    total_loss.backward()
+                    deform_optimizer.step()
+                    curr_train_info = {"iteration": iter_idx, "batch": batch_idx}
+                    curr_train_info = {**curr_train_info, **{loss_name:loss_dict[loss_name].item() for loss_name in loss_dict}}
+                    training_df["deform_net_gen"] = training_df["deform_net_gen"].append(curr_train_info, ignore_index = True)
+        
+        # save model parameters and training info
+        torch.save(deform_net.state_dict(), os.path.join(self.training_output_dir, "deform_net_weights.pt"))
+        torch.save(semantic_dis_net.state_dict(), os.path.join(self.training_output_dir, "semantic_dis_net_weights.pt"))
+        pickle.dump(training_df, open(os.path.join(self.training_output_dir, "training_df.p"),"wb"))
 
 
     # given a batch of meshes, masks, and poses computes a forward pass through a given deformation network and semantic discriminator network
     # returns the deformed mesh and a (optionally) dict of (unweighed, raw) computed losses
-    # TODO: fix mesh (currently, needs to already be in device)
-    def refine_mesh_batched(self, deform_net, semantic_dis_net, mesh_verts_batch, img_batch, pose_batch, compute_losses=True):
+    # Note that mask_batch is not necessary (can be None) when compute_losses=False, since it is only used to compute silhouette loss
+    def refine_mesh_batched(self, deform_net, semantic_dis_net, mesh_batch, mesh_verts_batch, img_batch, pose_batch, mask_batch, compute_losses=True):
 
         # computing mesh deformation
         delta_v = deform_net(pose_batch, img_batch, mesh_verts_batch)
+        batch_size = delta_v.shape[0]
         delta_v = delta_v.reshape((-1,3))
-        deformed_mesh = mesh.offset_verts(delta_v)
+        #delta_v = delta_v.reshape((batch_size,-1,3))
 
-        if not compute_losses:
-            return deformed_mesh
+        deformed_meshes = mesh_batch.offset_verts(delta_v)
+        loss_dict = {}
 
-        else:
-            # prep inputs used to compute losses
+        if compute_losses:
             pred_dist = pose_batch[:,0]
             pred_elev = pose_batch[:,1]
             pred_azim = pose_batch[:,2]
             R, T = look_at_view_transform(pred_dist, pred_elev, pred_azim) 
-            mask = rgba_image[:,:,3] > 0
-            mask_gt = torch.tensor(mask, dtype=torch.float).to(self.device)
-            num_vertices = mesh.verts_packed().shape[0]
+
+            deformed_renders = utils.render_mesh(deformed_meshes, R, T, self.device, img_size=224, silhouette=True)
+            deformed_silhouettes = deformed_renders[:, :, :, 3]
+            # TODO: check range of deformed silhouettes
+            loss_dict["sil_loss"] = F.binary_cross_entropy(deformed_silhouettes, mask_batch)
+
+            num_vertices = deformed_meshes.verts_packed().shape[0]
             zero_deformation_tensor = torch.zeros((num_vertices, 3)).to(self.device)
-            sym_plane_normal = [0,0,1] # TODO: make this generalizable to other classes
-
-            loss_dict = {}
-            # computing losses
-            rendered_deformed_mesh = utils.render_mesh(deformed_mesh, R, T, self.device, img_size=224, silhouette=True)
-            loss_dict["sil_loss"] = F.binary_cross_entropy(rendered_deformed_mesh[0, :,:, 3], mask_gt)
             loss_dict["l2_loss"] = F.mse_loss(delta_v, zero_deformation_tensor)
-            loss_dict["lap_smoothness_loss"] = mesh_laplacian_smoothing(deformed_mesh)
-            loss_dict["normal_consistency_loss"] = mesh_normal_consistency(deformed_mesh)
 
-            # TODO: remove weights?
-            if self.img_sym_lam > 0:
-                loss_dict["img_sym_loss"], _ = def_losses.image_symmetry_loss(deformed_mesh, sym_plane_normal, self.cfg["training"]["img_sym_num_azim"], self.device)
-            else:
-                loss_dict["img_sym_loss"] = torch.tensor(0).to(self.device)
-            if self.vertex_sym_lam > 0:
-                loss_dict["vertex_sym_loss"] = def_losses.vertex_symmetry_loss_fast(deformed_mesh, sym_plane_normal, self.device)
-            else:
-                loss_dict["vertex_sym_loss"] = torch.tensor(0).to(self.device)
-            if self.semantic_dis_lam > 0:
-                loss_dict["semantic_dis_loss"], _ = compute_sem_dis_loss(deformed_mesh, self.semantic_dis_loss_num_render, semantic_dis_net, self.device)
+            loss_dict["lap_smoothness_loss"] = mesh_laplacian_smoothing(deformed_meshes) # TODO: experiment with different variants (see pytorch3d docs)
+            loss_dict["normal_consistency_loss"] = mesh_normal_consistency(deformed_meshes)
+
+            if self.cfg["training"]["semantic_dis_lam"] > 0:
+                sem_dis_logits, _ = compute_sem_dis_logits(deformed_meshes, self.semantic_dis_loss_num_render, semantic_dis_net, self.device)
+                real_labels = self.real_labels_dist.sample((sem_dis_logits.shape[0],1)).squeeze(2).to(self.device)
+                loss_dict["semantic_dis_loss"] = F.binary_cross_entropy_with_logits(sem_dis_logits, real_labels)
             else:
                 loss_dict["semantic_dis_loss"] = torch.tensor(0).to(self.device)
 
-            return loss_dict, deformed_mesh
+            sym_plane_normal = [0,0,1] # TODO: make this generalizable to other classes
+            if self.cfg["training"]["img_sym_lam"] > 0:
+                loss_dict["img_sym_loss"] = def_losses.image_symmetry_loss_batched(deformed_meshes, sym_plane_normal, self.cfg["training"]["img_sym_num_azim"], self.device)
+            else:
+                loss_dict["img_sym_loss"] = torch.tensor(0).to(self.device)
+
+            if self.cfg["training"]["vertex_sym_lam"] > 0:
+                loss_dict["vertex_sym_loss"] = def_losses.vertex_symmetry_loss_batched(deformed_meshes, sym_plane_normal, self.device)
+            else:
+                loss_dict["vertex_sym_loss"] = torch.tensor(0).to(self.device)
+
+        return loss_dict, deformed_meshes
             
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Adversarially train a SemanticDiscriminatorNetwork.')
-    parser.add_argument('cfg_path', type=str, help='Path to yaml configuration file.')
+    parser.add_argument('--cfg_path', type=str, default="configs/default.yaml", help='Path to yaml configuration file.')
     parser.add_argument('--gpu', type=int, default=0, help='Gpu number to use.')
     parser.add_argument('--exp_name', type=str, default="adv_semantic_discrim", help='name of experiment')
     parser.add_argument('--light', action='store_true', help='run a lighter version of training w/ smaller batch size and num_workers')

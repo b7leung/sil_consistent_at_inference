@@ -104,7 +104,7 @@ class MeshRefiner():
             else:
                 img_sym_loss = torch.tensor(0).to(self.device)
             if self.vertex_sym_lam > 0:
-                vertex_sym_loss = def_losses.vertex_symmetry_loss_fast(deformed_mesh, sym_plane_normal, self.device)
+                vertex_sym_loss = def_losses.vertex_symmetry_loss(deformed_mesh, sym_plane_normal, self.device)
             else:
                 vertex_sym_loss = torch.tensor(0).to(self.device)
             if self.semantic_dis_lam > 0:

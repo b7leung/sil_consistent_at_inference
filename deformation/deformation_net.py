@@ -35,11 +35,10 @@ class DeformationNetwork(nn.Module):
     
     def forward(self, pose, image, mesh_vertices):
         '''
-        Args:
-            pose (tensor): a 1 x 3 tensor specifying distance, elevation, azimuth (in that order)
-            image (tensor): a 1 x 3 x 224 x 224 image which is segmented. The 1 indicates minibatch of size one.
-            mesh_vertices (tensor): a 1 x num_vertices x 3 tensor of vertices (ie, a pointcloud)
-                The 1 indicates minibatch of size one.
+        Args (b is batch size):
+            pose (tensor): a b x 3 tensor specifying distance, elevation, azimuth (in that order)
+            image (tensor): a b x 3 x 224 x 224 image which is segmented.
+            mesh_vertices (tensor): a b x num_vertices x 3 tensor of vertices (ie, a pointcloud)
         '''
         if mesh_vertices.shape[1] != self.num_vertices:
             raise ValueError("num_vertices does not match number of vertices of input mesh")
