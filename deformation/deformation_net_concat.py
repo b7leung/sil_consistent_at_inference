@@ -5,7 +5,7 @@ from .pointnet import SimplePointnet, ResnetPointnet
 from .resnet import Resnet18
 from utils import network_utils
 
-class DeformationNetwork(nn.Module):
+class DeformationNetworkConcat(nn.Module):
 
     def __init__(self, cfg, num_vertices, device):
         super().__init__()
@@ -13,11 +13,10 @@ class DeformationNetwork(nn.Module):
         pointnet_encoding_dim = cfg['model']['latent_dim_pointnet']
         resnet_encoding_dim = cfg['model']['latent_dim_resnet']
 
-        #self.pointnet_encoder = SimplePointnet(c_dim=pointnet_encoding_dim, hidden_dim=pointnet_encoding_dim)
-        self.pointnet_encoder = ResnetPointnet(c_dim=pointnet_encoding_dim, hidden_dim=pointnet_encoding_dim)
+        self.pointnet_encoder = SimplePointnet(c_dim=pointnet_encoding_dim, hidden_dim=pointnet_encoding_dim)
         self.resnet_encoder = Resnet18(c_dim=resnet_encoding_dim)
         self.deform_net = nn.Sequential(
-            nn.Linear(pointnet_encoding_dim+resnet_encoding_dim+3, 1024),
+            nn.Linear((num_vertices*3)+(pointnet_encoding_dim+resnet_encoding_dim+3), 1024),
             nn.ReLU(),
             nn.Linear(1024, 1024),
             nn.ReLU(),
@@ -29,7 +28,7 @@ class DeformationNetwork(nn.Module):
             nn.ReLU(),
             nn.Linear(1024, num_vertices*3)
         )
-        self.deform_net.apply(network_utils.weights_init_normal)
+        #self.deform_net.apply(network_utils.weights_init_normal)
         self.num_vertices = num_vertices
 
     
@@ -47,6 +46,8 @@ class DeformationNetwork(nn.Module):
         verts_encoding = self.pointnet_encoder(mesh_vertices)
         combined_encoding = torch.cat((pose, image_encoding, verts_encoding), 1)
 
-        delta_v = self.deform_net(combined_encoding)
+        mesh_vertices_combined_encoding = torch.cat((mesh_vertices.reshape(1,-1), combined_encoding), 1)
+
+        delta_v = self.deform_net(mesh_vertices_combined_encoding)
         return delta_v
 

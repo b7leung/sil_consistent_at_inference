@@ -3,16 +3,16 @@
 #  input_dir_img: "data/test_dataset_one" # Path to folder with images for meshes.
 
 model:
-  point_encoder: "ResnetPointnet" # {ResnetPointnet, ResnetPointnetExtended}
+  point_encoder: "ResnetPointnetExtended" # {ResnetPointnet, ResnetPointnetExtended}
   image_encoder: "Resnet18" # {Resnet18, Resnet34}
   deformation_decoder: "FCStandard" # {FCStandard, FC_BN}
-  latent_dim_pointnet: 512
-  latent_dim_resnet: 256
+  latent_dim_pointnet: 1024
+  latent_dim_resnet: 512
   output_delta_V: true # if, conceptually, the model should be outputting delta V (just the displacement), or the entire (delta V + V)
 
 training:
   num_iterations: 400
-  learning_rate: 0.00008 #[0.00001*]
+  learning_rate: 0.0001 #[0.00001*]
 
   semantic_dis_weight_path: "out/2020_08_24--06_45_44_dcgan_dis_drop8/weights_epoch_3.pt"
   semantic_dis_num_render: 2

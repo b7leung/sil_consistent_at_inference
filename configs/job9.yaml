@@ -12,7 +12,7 @@ model:
 
 training:
   num_iterations: 400
-  learning_rate: 0.00008 #[0.00001*]
+  learning_rate: 0.0001 #[0.00001*]
 
   semantic_dis_weight_path: "out/2020_08_24--06_45_44_dcgan_dis_drop8/weights_epoch_3.pt"
   semantic_dis_num_render: 2
@@ -31,9 +31,9 @@ training:
 semantic_dis_training:
 
   # for adversarial
-  batch_size: 16
+  batch_size: 8
   adv_iterations: 1500
   num_batches_dis_train: 0
-  num_batches_gen_train: 30
+  num_batches_gen_train: 60
   save_model_every: 200 # save model every n adversarial iterations
   label_noise: 0

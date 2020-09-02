@@ -25,6 +25,7 @@ import pandas as pd
 
 from utils import utils, network_utils
 from deformation.deformation_net import DeformationNetwork
+from deformation.deformation_net_concat import DeformationNetworkConcat
 import deformation.losses as def_losses
 from deformation.semantic_discriminator_loss import SemanticDiscriminatorLoss 
 
@@ -40,8 +41,8 @@ class MeshRefiner():
 
         self.sil_lam = self.cfg["training"]["sil_lam"]
         self.l2_lam = self.cfg["training"]["l2_lam"]
-        self.lap_lam = self.cfg["training"]["lap_lam"]
-        self.normals_lam = self.cfg["training"]["normals_lam"]
+        self.lap_lam = self.cfg["training"]["lap_smoothness_lam"]
+        self.normals_lam = self.cfg["training"]["normal_consistency_lam"]
         self.img_sym_lam = self.cfg["training"]["img_sym_lam"]
         self.vertex_sym_lam = self.cfg["training"]["vertex_sym_lam"]
         self.semantic_dis_lam = self.cfg["training"]["semantic_dis_lam"]
@@ -75,6 +76,7 @@ class MeshRefiner():
 
         # prep network & optimizer
         deform_net = DeformationNetwork(self.cfg, num_vertices, self.device)
+        #deform_net = DeformationNetworkConcat(self.cfg, num_vertices, self.device)
         deform_net.to(self.device)
         optimizer = optim.Adam(deform_net.parameters(), lr=self.cfg["training"]["learning_rate"])
 
