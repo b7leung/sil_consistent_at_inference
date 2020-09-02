@@ -12,7 +12,7 @@ model:
 
 training:
   num_iterations: 400
-  learning_rate: 0.00008 #[0.00001*]
+  learning_rate: 0.000055 #[0.00001*]
 
   semantic_dis_weight_path: "out/2020_08_24--06_45_44_dcgan_dis_drop8/weights_epoch_3.pt"
   semantic_dis_num_render: 2

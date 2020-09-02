@@ -40,8 +40,18 @@ class GenerationDataset(Dataset):
         self.cached_pred_poses = pickle.load(open(self.input_dir_pose, "rb"))
         self.dataset_meshes_list_path = cfg['semantic_dis_training']['dataset_meshes_list_path']
 
+        self.num_batches_gen_train = cfg["semantic_dis_training"]["num_batches_gen_train"]
+        self.batch_size = cfg["semantic_dis_training"]["batch_size"]
+
         with open (self.dataset_meshes_list_path, 'r') as f:
             self.dataset_meshes_list = f.read().split('\n')
+        
+        if self.num_batches_gen_train != -1:
+            self.dataset_meshes_list = self.dataset_meshes_list[:self.num_batches_gen_train * self.batch_size]
+
+        self.img_transforms = transforms.Compose([
+            transforms.ToTensor(),
+        ])
         
     
     def __len__(self):
@@ -69,12 +79,10 @@ class GenerationDataset(Dataset):
         data["mesh_verts"] = mesh.verts_packed()
 
         curr_img_path = os.path.join(self.input_dir_img, instance_name+".png")
-        # TODO: use transforms.ToTensor() instead? (may fix mixed memory formats warning)
-        rgba_image = np.asarray(Image.open(curr_img_path))
-        image = rgba_image[:,:,:3]
-        data["image"] = torch.tensor(image/255, dtype=torch.float).permute(2,0,1)
+        rgba_image = Image.open(curr_img_path)
+        data["image"] = self.img_transforms(rgba_image.convert("RGB"))
 
-        data["mask"] = torch.tensor(rgba_image[:,:,3] > 0, dtype=torch.float)
+        data["mask"] = torch.tensor(np.asarray(rgba_image)[:,:,3] > 0, dtype=torch.float)
 
         pred_dist = self.cached_pred_poses[instance_name]['dist']
         pred_elev = self.cached_pred_poses[instance_name]['elev']
