@@ -41,13 +41,14 @@ from adversarial.datasets import gen_data_collate
 
 class AdversarialDiscriminatorEval():
 
-    def __init__(self, saved_model_path, deform_net_weights_path, semantic_dis_net_weights_path, gpu_num):
+    def __init__(self, saved_model_path, deform_net_weights_path, semantic_dis_net_weights_path, output_dir_name,
+                 num_mesh_eval, device):
         cfg_path = os.path.join(saved_model_path, glob.glob(os.path.join(saved_model_path, "*.yaml"))[0].split('/')[-1])
         self.cfg = utils.load_config(cfg_path, "configs/default.yaml")
 
-        self.device = torch.device("cuda:"+str(gpu_num))
+        self.device = device
         self.saved_model_path = saved_model_path 
-        self.eval_output_path = os.path.join(saved_model_path, "eval")
+        self.eval_output_path = os.path.join(saved_model_path, output_dir_name)
         if not os.path.exists(self.eval_output_path):
             os.makedirs(self.eval_output_path)
         self.deform_net_weights_path = deform_net_weights_path
@@ -60,7 +61,7 @@ class AdversarialDiscriminatorEval():
         self.real_labels_dist = torch.distributions.Uniform(torch.tensor([1.0-self.label_noise]), torch.tensor([1.0]))
         self.fake_labels_dist = torch.distributions.Uniform(torch.tensor([0.0]), torch.tensor([0.0+self.label_noise]))
 
-        self.num_mesh_eval = 10
+        self.num_mesh_eval = num_mesh_eval
 
 
     def eval(self):
@@ -81,7 +82,8 @@ class AdversarialDiscriminatorEval():
 
         # eval loop
         loss_info = {}
-        with tqdm(total=self.num_mesh_eval, file=self.tqdm_out) as pbar:
+        #with tqdm(total=self.num_mesh_eval, file=self.tqdm_out, desc="Evaluating Meshes") as pbar:
+        with tqdm(total=self.num_mesh_eval, desc="Evaluating Meshes") as pbar:
             for batch_idx, gen_batch in enumerate(generation_loader):
                 if batch_idx >= self.num_mesh_eval: break
 
@@ -156,7 +158,7 @@ class AdversarialDiscriminatorEval():
 # returns the latest deform_net and semantic_dis_net weights
 def get_latest_weights_paths(saved_model_dir):
     if os.path.exists(os.path.join(saved_model_dir, "deform_net_weights.pt")):
-        return os.path.join(saved_model_dir, "deform_net_weights.pt")
+        return os.path.join(saved_model_dir, "deform_net_weights.pt"), os.path.join(saved_model_dir, "semantic_dis_net_weights.pt")
     
     weights_path = glob.glob(os.path.join(saved_model_dir, "deform_net_weights_*"))
     sorted(weights_path)
@@ -168,12 +170,14 @@ if __name__ == "__main__":
     parser.add_argument('saved_model_path', type=str, help='Path to saved model folder.')
     #parser.add_argument('--saved_weights_path', type=str, default="", help = "path to .p weights to use for deformation network")
     parser.add_argument('--gpu', type=int, default=0, help='Gpu number to use.')
+    parser.add_argument('--num_mesh', type=int, default=10, help='Number of meshes to evaluate.')
+    parser.add_argument('--output_name', type=str, default="eval", help='Name to use for output evaluation folder')
     args = parser.parse_args()
 
     deform_net_weights_path, semantic_dis_net_weights_path = get_latest_weights_paths(args.saved_model_path)
     print("Using weights at:\n{}\n{}\n".format(deform_net_weights_path, semantic_dis_net_weights_path))
-
-    adv_eval = AdversarialDiscriminatorEval(args.saved_model_path, deform_net_weights_path, semantic_dis_net_weights_path, args.gpu)
+    device = torch.device("cuda:"+str(args.gpu))
+    adv_eval = AdversarialDiscriminatorEval(args.saved_model_path, deform_net_weights_path, semantic_dis_net_weights_path, args.output_name, args.num_mesh, device)
     adv_eval.eval()
 
 

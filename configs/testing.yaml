@@ -8,6 +8,7 @@ model:
   deformation_decoder: "FCStandard" # {FCStandard, FC_BN}
   latent_dim_pointnet: 512
   latent_dim_resnet: 256
+  decoder_dim: 1024
   output_delta_V: true # if, conceptually, the model should be outputting delta V (just the displacement), or the entire (delta V + V)
 
 training:
@@ -15,7 +16,7 @@ training:
   learning_rate: 0.00008 #[0.00001*]
 
   semantic_dis_weight_path: "out/2020_08_24--06_45_44_dcgan_dis_drop8/weights_epoch_3.pt"
-  semantic_dis_num_render: 2
+  semantic_dis_num_render: 8
   semantic_dis_lam: 0 # semantic discriminator loss weight
 
   img_sym_num_azim: 1 #[1*]
