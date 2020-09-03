@@ -6,7 +6,7 @@ model:
   point_encoder: "ResnetPointnetExtended" # {ResnetPointnet, ResnetPointnetExtended}
   image_encoder: "Resnet18" # {Resnet18, Resnet34}
   deformation_decoder: "FCStandard" # {FCStandard, FC_BN}
-  latent_dim_pointnet: 1024
+  latent_dim_pointnet: 512
   latent_dim_resnet: 512
   output_delta_V: true # if, conceptually, the model should be outputting delta V (just the displacement), or the entire (delta V + V)
 
@@ -33,7 +33,10 @@ semantic_dis_training:
   # for adversarial
   batch_size: 16
   adv_iterations: 1500
-  num_batches_dis_train: 0
+  dis_epochs_per_iteration: 0
+  gen_epochs_per_iteration: 1
   num_batches_gen_train: 30
   save_model_every: 200 # save model every n adversarial iterations
+  num_mesh_eval: 0
   label_noise: 0
+  real_label_offset: 0

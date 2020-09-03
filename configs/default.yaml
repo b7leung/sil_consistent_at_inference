@@ -8,9 +8,9 @@ brute_force_pose_est:
   num_dists: 40
 
 model:
-  point_encoder: "ResnetPointnet"
-  image_encoder: "Resnet18"
-  deformation_decoder: "FCStandard"
+  point_encoder: "ResnetPointnet" # {ResnetPointnet, ResnetPointnetExtended}
+  image_encoder: "Resnet18" # {Resnet18, Resnet34}
+  deformation_decoder: "FCStandard" # {FCStandard, FC_BN}
   latent_dim_pointnet: 512
   latent_dim_resnet: 256
   decoder_dim: 1024
@@ -20,8 +20,8 @@ training:
   num_iterations: 700
   learning_rate: 0.00008 #[0.00001*]
 
-  semantic_dis_weight_path: "out/2020_08_24--06_45_44_dcgan_dis_drop8/weights_epoch_3.pt"
-  semantic_dis_num_render: 2
+  #semantic_dis_weight_path: "out/2020_08_24--06_45_44_dcgan_dis_drop8/weights_epoch_3.pt"
+  semantic_dis_num_render: 8
   semantic_dis_lam: 0 # semantic discriminator loss weight
 
   img_sym_num_azim: 1 #[1*]
@@ -41,14 +41,22 @@ semantic_dis_training:
   input_dir_pose: "data/onet_chair_pix3d_dann_simplified_processed/pred_poses.p" # path to predicted pose cache dict corresponding to mesh/imgs in input_dir_mesh and input_dir_img
   dataset_meshes_list_path: "data/onet_chair_pix3d_dann_simplified/1502.lst" # path to a file which lists the meshes/imgs to use from input_dir_mesh and input_dir_img. Meshes have to have the same # vertices.
   mesh_num_verts: 1502
+  dis_weight_path: ""
+  gen_weight_path: ""
 
   epochs: 10
   eval_every: 1 # evaluate validation set accuracy every x epochs
 
   # for adversarial
   batch_size: 16
-  adv_iterations: 1500
-  num_batches_dis_train: 0
-  num_batches_gen_train: -1
-  save_model_every: 100 # save model every n adversarial iterations
+  adv_iterations: 2
+  dis_epochs_per_iteration: 2
+  gen_epochs_per_iteration: 1
+
+  num_batches_gen_train: 7
+  save_model_every: 200 # save model every n adversarial iterations
   label_noise: 0
+  real_label_offset: 0
+
+  # hyperparameters for adversarial discriminator
+  dis_learning_rate: 0.00001

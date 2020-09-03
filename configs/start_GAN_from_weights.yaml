@@ -22,11 +22,11 @@ semantic_dis_training:
 
   # for adversarial
   batch_size: 16
-  adv_iterations: 15
-  dis_epochs_per_iteration: 30
-  gen_epochs_per_iteration: 50
-  num_batches_gen_train: 30
-  save_model_every: 2 # save model every n adversarial iterations
+  adv_iterations: 2 #10
+  dis_epochs_per_iteration: 3 #5
+  gen_epochs_per_iteration: 2 #75
+  num_batches_gen_train: 10 #30
+  save_model_every: 1 # save model every n adversarial iterations
   num_mesh_eval: 10
   label_noise: 0
   real_label_offset: 0
