@@ -1,40 +1,54 @@
 
 import torch
+from torchvision import transforms, utils
 import pytorch3d
 from pytorch3d.renderer import look_at_view_transform
 
 from .semantic_discriminator_net import SemanticDiscriminatorNetwork
 from utils import utils
+from adversarial.datasets import dis_input_PIL_transforms
 
 
 # computes semantic discriminator loss on a batch of meshes. Outputs [b,1] tensor, where b is batch size
 # TODO: currently only works on silhouette; generalize it to rgb renders
-def compute_sem_dis_logits(meshes_batch, num_render, semantic_discriminator_net, device):
-    # need to make sure this matches render settings for discriminator training set
-    # TODO: alternatively, randomize the angles each time?
-    # 0.,  45.,  90., 135., 180., 225., 270., 315. 
+# need to make sure this matches render settings for discriminator training set?
+def compute_sem_dis_logits(meshes_batch, semantic_discriminator_net, device, cfg):
+
+    num_render = cfg["training"]["semantic_dis_num_render"]
+    random = cfg["semantic_dis_training"]["randomize_dis_inputs"]
+    sil_dis_input = cfg["semantic_dis_training"]["sil_dis_input"]
+    input_img_size = cfg["semantic_dis_training"]["dis_input_size"]
     num_meshes = len(meshes_batch)
-    azims = torch.linspace(0, 360, num_render+1)[:-1].repeat(num_meshes)
+
+    if random:
+        d = torch.distributions.Uniform(torch.tensor([0.0]), torch.tensor([360.0]))
+        azims = d.sample((num_render*num_meshes,)).squeeze(-1)
+    else:
+        # 0.,  45.,  90., 135., 180., 225., 270., 315. 
+        azims = torch.linspace(0, 360, num_render+1)[:-1].repeat(num_meshes)
     elevs = torch.Tensor([25 for i in range(num_meshes * num_render)])
     dists = torch.ones(num_meshes * num_render) * 1.7
     R, T = look_at_view_transform(dists, elevs, azims)
 
     extended_meshes = meshes_batch.extend(num_render)
-    # TODO: change to batched render?
-    renders = utils.render_mesh(extended_meshes, R, T, device, img_size=64, silhouette=True)
-    # converting from [num_render, 224, 224, 4] silhouette render (only channel 4 has info) 
-    # to [num_render, 224, 224, 3] rgb image (black/white)
-    renders_binary_rgb = torch.unsqueeze(renders[...,3], 3).repeat(1,1,1,3)
+    renders = utils.render_mesh(extended_meshes, R, T, device, img_size=input_img_size, silhouette=sil_dis_input)
 
-    logits = semantic_discriminator_net(renders_binary_rgb.permute(0,3,1,2))
+    if sil_dis_input:
+        # converting from [num_render, 224, 224, 4] silhouette render (only channel 4 has info) 
+        # to [num_render, 224, 224, 3] rgb image (black/white)
+        renders_rgb = torch.unsqueeze(renders[...,3], 3).repeat(1,1,1,3)
+    else:
+        renders_rgb = renders[...,:3]
+    
+    logits = semantic_discriminator_net(renders_rgb.permute(0,3,1,2).contiguous())
 
-    return logits, renders_binary_rgb
+    return logits, renders_rgb
 
 
 # computes semantic discriminator loss on a batch of meshes
-def compute_sem_dis_loss(meshes_batch, num_render, semantic_discriminator_net, device):
+def compute_sem_dis_loss(meshes_batch, num_render, semantic_discriminator_net, device, random, sil_dis_input):
 
-    logits, renders_binary_rgb = compute_sem_dis_loss(meshes_batch, num_render, semantic_discriminator_net, device)
+    logits, renders_binary_rgb = compute_sem_dis_loss(meshes_batch, num_render, semantic_discriminator_net, device, random, sil_dis_input)
     loss = torch.sigmoid(logits)
     loss = torch.mean(loss)
 

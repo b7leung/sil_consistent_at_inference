@@ -20,7 +20,7 @@ def gen_data_collate(batch):
     out = {}
     for key in elem:
         if isinstance(elem[key], pytorch3d.structures.meshes.Meshes):
-            out[key] = pytorch3d.structures.join_meshes_as_batch([d[key] for d in batch], include_textures=False)
+            out[key] = pytorch3d.structures.join_meshes_as_batch([d[key] for d in batch], include_textures=True)
             #out[key] = pytorch3d.datasets.utils.collate_batched_meshes([{d[key] for d in batch])
         else:
             out[key] = default_collate([d[key] for d in batch])
@@ -92,20 +92,40 @@ class GenerationDataset(Dataset):
         return data
 
 
+dis_input_PIL_transforms= transforms.Compose([
+    transforms.ColorJitter(brightness=0.1, contrast=0, saturation=0, hue=0),
+    transforms.RandomPerspective(distortion_scale=0.1, p=0.25, interpolation=3, fill=0),
+    transforms.RandomAffine(10, translate=(0.1,0.1), scale=(0.70,1.3), shear=[-7,7,-7,7], fillcolor=(0,0,0)),
+    transforms.RandomHorizontalFlip(p=0.5),
+])
+
 
 class ShapenetRendersDataset(Dataset):
     """Dataset used for shapenet renders. Each datum is a random shapenet render"""
     def __init__(self, cfg):
 
-        self.real_render_dir = cfg["semantic_dis_training"]["real_dataset_dir"]
+        sil_dis_input = cfg["semantic_dis_training"]["sil_dis_input"]
+        if sil_dis_input:
+            real_dataset_dir = cfg["semantic_dis_training"]["real_dataset_dir_sil"]
+        else:
+            real_dataset_dir = cfg["semantic_dis_training"]["real_dataset_dir"]
 
-        self.real_image_paths = glob(os.path.join(self.real_render_dir, "*.jpg"))
-        
-        self.img_transforms = transforms.Compose([
-            transforms.Resize((64,64)),
-            transforms.ToTensor(),
-        ])
-    
+        self.real_image_paths = glob(os.path.join(real_dataset_dir, "*.jpg"))
+        input_img_size = cfg["semantic_dis_training"]["dis_input_size"]
+
+        transform_dis_inputs = cfg["semantic_dis_training"]["transform_dis_inputs"]
+        if transform_dis_inputs:
+            self.img_transforms = transforms.Compose([
+                transforms.Resize((input_img_size,input_img_size)),
+                dis_input_PIL_transforms,
+                transforms.ToTensor(),
+            ])
+        else:
+            self.img_transforms = transforms.Compose([
+                transforms.Resize((input_img_size,input_img_size)),
+                transforms.ToTensor(),
+            ])
+            
     
     def __len__(self):
         return len(self.real_image_paths)
