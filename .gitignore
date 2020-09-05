@@ -6,3 +6,4 @@ __pycache__/
 stderr_test.py
 out/
 data_prep_tools/ManifoldPlus/
+.vscode

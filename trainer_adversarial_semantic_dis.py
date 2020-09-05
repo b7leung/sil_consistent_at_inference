@@ -1,7 +1,5 @@
 import argparse
 import os
-import glob
-import pprint
 import pickle
 import time
 import shutil
@@ -9,34 +7,17 @@ import shutil
 import torch
 from torch.nn import functional as F
 import torch.optim as optim
-from torchvision import transforms, utils
-import pytorch3d.structures
-from pytorch3d.io import load_objs_as_meshes
-from pytorch3d.io import load_obj
-from pytorch3d.structures import Meshes
-from pytorch3d.renderer import Textures
-from pytorch3d.renderer import (
-    look_at_view_transform,
-    OpenGLPerspectiveCameras, 
-    PointLights, 
-    DirectionalLights, 
-    Materials, 
-    RasterizationSettings, 
-    MeshRenderer, 
-    MeshRasterizer,  
-    SoftPhongShader
-)
+from torchvision import transforms
+from pytorch3d.renderer import look_at_view_transform
 from pytorch3d.loss import mesh_laplacian_smoothing, mesh_normal_consistency
 from tqdm.autonotebook import tqdm
 import pandas as pd
 import numpy as np
-from PIL import Image
 
-from utils import utils, network_utils
-from deformation.deformation_net import DeformationNetwork
+from utils import utils
 from deformation.deformation_net_extended import DeformationNetworkExtended
 import deformation.losses as def_losses
-from deformation.semantic_discriminator_loss import SemanticDiscriminatorLoss, compute_sem_dis_loss, compute_sem_dis_logits
+from deformation.semantic_discriminator_loss import compute_sem_dis_logits
 from adversarial.datasets import GenerationDataset, ShapenetRendersDataset
 from deformation.semantic_discriminator_net import SemanticDiscriminatorNetwork
 from adversarial.datasets import gen_data_collate
@@ -66,7 +47,7 @@ class AdversarialDiscriminatorTrainer():
             os.makedirs(self.training_output_dir)
         shutil.copyfile(cfg_path, os.path.join(self.training_output_dir, cfg_path.split("/")[-1]))
 
-        # for adding noise to training labels. Real images have label 1, fake images has label 0 
+        # for adding noise to training labels. Real images have label 1, fake images has label 0
         self.label_noise = self.cfg["semantic_dis_training"]["label_noise"]
         self.real_label_offset = self.cfg["semantic_dis_training"]["real_label_offset"]
         self.real_labels_dist = torch.distributions.Uniform(torch.tensor([(1.0-self.real_label_offset)-self.label_noise]), torch.tensor([(1.0-self.real_label_offset)]))
@@ -81,22 +62,21 @@ class AdversarialDiscriminatorTrainer():
 
     # given a tensor of batches of images, dimensions (b x w x h x c) or channel-first (b x c x w x h)
     # saves a specified amount of them
-    def save_tensor_img(self, tensor, channel_first, name_prefix, save_num=5):
+    def save_tensor_img(self, tensor, channel_first, name_prefix, output_dir, save_num=5):
         img_transforms = transforms.Compose([
             transforms.ToPILImage()
         ])
 
-        img_dir = os.path.join(self.training_output_dir, "training_saved_images")
-        if not os.path.exists(img_dir):
-            os.makedirs(img_dir)
+        if not os.path.exists(output_dir):
+            os.makedirs(output_dir)
 
         tensor = tensor.detach().cpu()
         if not channel_first:
-            tensor = tensor.permute(0,3,1,2)
+            tensor = tensor.permute(0, 3, 1, 2)
         if save_num != -1:
             tensor = tensor[:save_num]
         for i, img_tensor in enumerate(tensor):
-            img_transforms(img_tensor).save(os.path.join(img_dir, name_prefix+"_{}.jpg".format(i)))
+            img_transforms(img_tensor).save(os.path.join(output_dir, name_prefix+"_{}.jpg".format(i)))
 
 
     def train(self):
@@ -109,13 +89,13 @@ class AdversarialDiscriminatorTrainer():
 
         # setting up networks and optimizers
         deform_net = DeformationNetworkExtended(self.cfg, self.mesh_num_vertices, self.device)
-        if self.gen_weight_path != "": 
+        if self.gen_weight_path != "":
             deform_net.load_state_dict(torch.load(self.gen_weight_path))
         deform_net.to(self.device)
         deform_optimizer = optim.Adam(deform_net.parameters(), lr=self.cfg["training"]["learning_rate"])
 
         semantic_dis_net = SemanticDiscriminatorNetwork(self.cfg)
-        if self.dis_weight_path != "": 
+        if self.dis_weight_path != "":
             semantic_dis_net.load_state_dict(torch.load(self.dis_weight_path))
         semantic_dis_net.to(self.device)
         dis_optimizer = optim.Adam(semantic_dis_net.parameters(), lr=self.cfg["semantic_dis_training"]["dis_learning_rate"], weight_decay=1e-2)
@@ -144,9 +124,9 @@ class AdversarialDiscriminatorTrainer():
                     gen_batch_vertices = gen_batch["mesh_verts"].to(self.device)
                     gen_batch_images = gen_batch["image"].to(self.device)
                     gen_batch_poses = gen_batch["pose"].to(self.device)
-                    _, deformed_meshes  = self.refine_mesh_batched(deform_net, semantic_dis_net, gen_batch_meshes, gen_batch_vertices, 
-                                                                gen_batch_images, gen_batch_poses, None, compute_losses=False)
-                    pred_logits_fake, processed_renders = compute_sem_dis_logits(deformed_meshes, self.semantic_dis_loss_num_render, semantic_dis_net, self.device)
+                    _, deformed_meshes  = self.refine_mesh_batched(deform_net, semantic_dis_net, gen_batch_meshes, gen_batch_vertices,
+                                                                   gen_batch_images, gen_batch_poses, None, compute_losses=False)
+                    pred_logits_fake, processed_renders = compute_sem_dis_logits(deformed_meshes, semantic_dis_net, self.device, self.cfg)
 
                     batch_size = real_render_batch.shape[0]
                     real_labels = self.real_labels_dist.sample((batch_size,1)).squeeze(2).to(self.device)
@@ -154,23 +134,33 @@ class AdversarialDiscriminatorTrainer():
 
                     dis_loss = F.binary_cross_entropy_with_logits(pred_logits_real, real_labels) + \
                         F.binary_cross_entropy_with_logits(pred_logits_fake, fake_labels)
-                    
+
                     dis_loss.backward()
                     dis_optimizer.step()
-                    curr_train_info = {"iteration": iter_idx, "batch": batch_idx, "semantic_dis_loss": dis_loss.item()}
-                    training_df["semantic_dis"] = training_df["semantic_dis"].append(curr_train_info, ignore_index = True)
-                    # save some example inputs to discriminator from the first batch
-                    self.save_tensor_img(real_render_batch, True, "iter_{}_real".format(iter_idx), -1)
-                    self.save_tensor_img(processed_renders, False, "iter_{}_fake".format(iter_idx), -1)
                     raise
-                
+
+                    # compute accuracy
+                    batch_accuracies = []
+                    real_correct_vec = (torch.sigmoid(pred_logits_real) > 0.5) == real_labels.byte()
+                    fake_correct_vec = (torch.sigmoid(pred_logits_fake) > 0.5) == fake_labels.byte()
+                    batch_accuracies.append(real_correct_vec.cpu().numpy())
+                    batch_accuracies.append(fake_correct_vec.cpu().numpy())
+                    batch_accuracy = np.mean(np.concatenate(batch_accuracies, axis=0)).item()
+                    curr_train_info = {"iteration": iter_idx, "batch": batch_idx, "semantic_dis_loss": dis_loss.item(), "batch_avg_dis_acc":batch_accuracy}
+                    training_df["semantic_dis"] = training_df["semantic_dis"].append(curr_train_info, ignore_index=True)
+                    # save some example inputs to discriminator from the first batch
+                    if dis_epoch == 0 and batch_idx == 0:
+                        img_output_dir = os.path.join(self.training_output_dir, "training_saved_images", "iter_{}".format(iter_idx))
+                        self.save_tensor_img(real_render_batch, True, "iter_{}_real".format(iter_idx), img_output_dir, 64)
+                        self.save_tensor_img(processed_renders, False, "iter_{}_fake".format(iter_idx), img_output_dir, 64)
+
 
             # training generator; discriminator weights are frozen
             ############################################################################################################################
             for param in semantic_dis_net.parameters(): param.requires_grad = False
             for param in deform_net.parameters(): param.requires_grad = True
 
-            for gen_epoch in tqdm(range(self.gen_epochs_per_iteration), desc="Iteration {} Generator Trainings".format(iter_idx)): 
+            for gen_epoch in tqdm(range(self.gen_epochs_per_iteration), desc="Iteration {} Generator Trainings".format(iter_idx)):
                 for batch_idx, gen_batch in enumerate(tqdm(generation_loader, desc="Generator Epoch {} Batches".format(gen_epoch))):
 
                     gen_batch_meshes = gen_batch["mesh"].to(self.device)
@@ -192,10 +182,10 @@ class AdversarialDiscriminatorTrainer():
 
                     curr_train_info = {"iteration": iter_idx, "batch": batch_idx, "total_loss": total_loss.item()}
                     curr_train_info = {**curr_train_info, **{loss_name:loss_dict[loss_name].item() for loss_name in loss_dict}}
-                    training_df["deform_net_gen"] = training_df["deform_net_gen"].append(curr_train_info, ignore_index = True)
+                    training_df["deform_net_gen"] = training_df["deform_net_gen"].append(curr_train_info, ignore_index=True)
 
                 pickle.dump(training_df, open(os.path.join(self.training_output_dir, "training_df.p"),"wb"))
-            
+
             if iter_idx % self.save_model_every == 0 or iter_idx == self.total_training_iters-1:
                 curr_gen_weights_path = os.path.join(self.training_output_dir, "deform_net_weights_{}.pt".format(iter_idx))
                 curr_dis_weights_path = os.path.join(self.training_output_dir, "semantic_dis_net_weights_{}.pt".format(iter_idx))
@@ -248,7 +238,7 @@ class AdversarialDiscriminatorTrainer():
             loss_dict["normal_consistency_loss"] = mesh_normal_consistency(deformed_meshes)
 
             if self.cfg["training"]["semantic_dis_lam"] > 0:
-                sem_dis_logits, _ = compute_sem_dis_logits(deformed_meshes, self.semantic_dis_loss_num_render, semantic_dis_net, self.device)
+                sem_dis_logits, _ = compute_sem_dis_logits(deformed_meshes, semantic_dis_net, self.device, self.cfg)
                 real_labels = self.real_labels_dist.sample((sem_dis_logits.shape[0],1)).squeeze(2).to(self.device)
                 loss_dict["semantic_dis_loss"] = F.binary_cross_entropy_with_logits(sem_dis_logits, real_labels)
             else:

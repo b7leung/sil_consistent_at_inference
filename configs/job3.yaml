@@ -4,30 +4,39 @@ training:
   learning_rate: 0.00008 #[0.00001*]
 
   semantic_dis_num_render: 8
-  semantic_dis_lam: 5 # semantic discriminator loss weight
+  semantic_dis_lam: 10 # semantic discriminator loss weight
 
   img_sym_num_azim: 1 #[1*]
   img_sym_lam: 50 # image-based symmetry loss [100*]
 
-  sil_lam: 20 # silouette loss. [5*]
+  sil_lam: 8 # silouette loss. [5*]
   vertex_sym_lam: 0.1 # vertex-based symmetry loss [0.1*]
 
-  l2_lam: 0 # l2 loss on delta v  [1*]
+  l2_lam: 0.5 # l2 loss on delta v  [1*]
   lap_smoothness_lam: 10  # laplacian smoothing loss [10*]
   normal_consistency_lam: 10 # normal consistency loss [10*]
 
 semantic_dis_training:
-  dis_weight_path: "out/exp_set_1/2020_09_01--07_58_23_job5/semantic_dis_net_weights.pt"
-  gen_weight_path: "out/exp_set_1/2020_09_01--07_58_23_job5/deform_net_weights.pt"
+  dis_weight_path: ""
+  gen_weight_path: ""
 
   # for adversarial
   batch_size: 16
-  adv_iterations: 15
+  adv_iterations: 20
   dis_epochs_per_iteration: 30
   gen_epochs_per_iteration: 100
-  num_batches_gen_train: 30
+  num_batches_gen_train: 30 # ***
   save_model_every: 2 # save model every n adversarial iterations
   num_mesh_eval: 10
   label_noise: 0
-  real_label_offset: 0.1
+  real_label_offset: 0.05
+
+  transform_dis_inputs: false
+
+  gen_small_weights_init: true # note: this is overided if gen_weight_path is specified # ***
+  randomize_dis_inputs: true # ***
+
+
+
+
 

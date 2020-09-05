@@ -1,0 +1,13 @@
+[flake8]
+# it's not a bug that we aren't using all of hacking
+ignore =
+    # line too long
+    E501,
+    # whitespace around arithemetic
+    E226,
+    # too many blank lines
+    E303,
+    # expected blank line
+    E301,
+    E701, E261, E221, E231, E305, W291, W293
+

@@ -72,7 +72,9 @@ class DeformationNetworkExtended(nn.Module):
         else:
             raise ValueError("Deformation decoder name not recognized.")
 
-        #self.deform_net.apply(network_utils.weights_init_normal)
+        if cfg["semantic_dis_training"]["gen_small_weights_init"]:
+            # TODO: should this also be applied to pointnet encoder?
+            self.deform_net.apply(network_utils.weights_init_normal)
 
     
     def forward(self, pose, image, mesh_vertices):
