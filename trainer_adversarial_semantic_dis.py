@@ -30,8 +30,8 @@ class AdversarialDiscriminatorTrainer():
         self.cfg = utils.load_config(cfg_path, "configs/default.yaml")
         self.device = torch.device("cuda:"+str(gpu_num))
 
-        self.mesh_num_vertices = self.cfg["semantic_dis_training"]["mesh_num_verts"]
         self.batch_size = self.cfg["semantic_dis_training"]["batch_size"]
+        self.mesh_num_vertices = self.cfg["semantic_dis_training"]["mesh_num_verts"]
         self.semantic_dis_loss_num_render = self.cfg["training"]["semantic_dis_num_render"]
         self.dis_weight_path = self.cfg["semantic_dis_training"]["dis_weight_path"]
         self.gen_weight_path = self.cfg["semantic_dis_training"]["gen_weight_path"]
@@ -137,7 +137,6 @@ class AdversarialDiscriminatorTrainer():
 
                     dis_loss.backward()
                     dis_optimizer.step()
-                    raise
 
                     # compute accuracy
                     batch_accuracies = []
@@ -146,13 +145,13 @@ class AdversarialDiscriminatorTrainer():
                     batch_accuracies.append(real_correct_vec.cpu().numpy())
                     batch_accuracies.append(fake_correct_vec.cpu().numpy())
                     batch_accuracy = np.mean(np.concatenate(batch_accuracies, axis=0)).item()
-                    curr_train_info = {"iteration": iter_idx, "batch": batch_idx, "semantic_dis_loss": dis_loss.item(), "batch_avg_dis_acc":batch_accuracy}
+                    curr_train_info = {"iteration": iter_idx, "batch": batch_idx, "semantic_dis_loss": dis_loss.item(), "batch_avg_dis_acc": batch_accuracy}
                     training_df["semantic_dis"] = training_df["semantic_dis"].append(curr_train_info, ignore_index=True)
                     # save some example inputs to discriminator from the first batch
                     if dis_epoch == 0 and batch_idx == 0:
                         img_output_dir = os.path.join(self.training_output_dir, "training_saved_images", "iter_{}".format(iter_idx))
-                        self.save_tensor_img(real_render_batch, True, "iter_{}_real".format(iter_idx), img_output_dir, 64)
-                        self.save_tensor_img(processed_renders, False, "iter_{}_fake".format(iter_idx), img_output_dir, 64)
+                        self.save_tensor_img(real_render_batch, True, "iter_{}_real".format(iter_idx), img_output_dir, 32)
+                        self.save_tensor_img(processed_renders, False, "iter_{}_fake".format(iter_idx), img_output_dir, 32)
 
 
             # training generator; discriminator weights are frozen

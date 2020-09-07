@@ -21,7 +21,6 @@ def gen_data_collate(batch):
     for key in elem:
         if isinstance(elem[key], pytorch3d.structures.meshes.Meshes):
             out[key] = pytorch3d.structures.join_meshes_as_batch([d[key] for d in batch], include_textures=True)
-            #out[key] = pytorch3d.datasets.utils.collate_batched_meshes([{d[key] for d in batch])
         else:
             out[key] = default_collate([d[key] for d in batch])
 

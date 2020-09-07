@@ -143,7 +143,7 @@ class AdversarialDiscriminatorEval():
             loss_dict["lap_smoothness_loss"] = mesh_laplacian_smoothing(deformed_meshes) # TODO: experiment with different variants (see pytorch3d docs)
             loss_dict["normal_consistency_loss"] = mesh_normal_consistency(deformed_meshes)
 
-            sem_dis_logits, _ = compute_sem_dis_logits(deformed_meshes, self.semantic_dis_loss_num_render, semantic_dis_net, self.device)
+            sem_dis_logits, _ = compute_sem_dis_logits(deformed_meshes, semantic_dis_net, self.device, self.cfg)
             real_labels = self.real_labels_dist.sample((sem_dis_logits.shape[0],1)).squeeze(2).to(self.device)
             loss_dict["semantic_dis_loss"] = F.binary_cross_entropy_with_logits(sem_dis_logits, real_labels)
 
