@@ -37,6 +37,11 @@ training:
 semantic_dis_training:
   dis_type: "renders" # type of discriminator branch, in {renders, pointnet}
 
+  # for dis_type = pointnet
+  real_shapes_dir: "/home/svcl-oowl/dataset/ShapeNetCore.v1/03001627"
+  recompute_cache: false
+
+  # for dis_type = renders
   output_dir: "out" # Path to folder to output saved weights and training pickle
   real_dataset_dir: "data/semantic_dis/real_renders" # Path to folder with rendered images of real 3d models.
   real_dataset_dir_sil: "data/semantic_dis_sil/real_renders" # Path to folder with rendered images of real 3d models.
