@@ -17,7 +17,8 @@ training:
   normal_consistency_lam: 10 # normal consistency loss [10*]
 
 semantic_dis_training:
-
+  dis_type: "renders" # type of discriminator branch, in {renders, pointnet}
+  
   batch_size: 16
   adv_iterations: 2
   dis_epochs_per_iteration: 7

@@ -145,6 +145,7 @@ class AdversarialDiscriminatorEval():
 
             sem_dis_logits, _ = compute_sem_dis_logits(deformed_meshes, semantic_dis_net, self.device, self.cfg)
             real_labels = self.real_labels_dist.sample((sem_dis_logits.shape[0],1)).squeeze(2).to(self.device)
+            
             loss_dict["semantic_dis_loss"] = F.binary_cross_entropy_with_logits(sem_dis_logits, real_labels)
 
             sym_plane_normal = [0,0,1] # TODO: make this generalizable to other classes

@@ -1,4 +1,5 @@
 import os
+from pathlib import Path
 
 import torch
 from torch.utils.data import Dataset, DataLoader
@@ -132,3 +133,34 @@ class ShapenetRendersDataset(Dataset):
     def __getitem__(self, idx):
         data = self.img_transforms(Image.open(self.real_image_paths[idx]).convert("RGB"))
         return data
+
+
+class ShapenetPointsDataset(Dataset):
+
+    def __init__(self, cfg):
+        
+        real_image_paths_cache_path = "caches/real_shapes_paths.p"
+
+        if cfg["semantic_dis_training"]["recompute_cache"] or not os.path.exists(real_image_paths_cache_path):
+            real_shapes_dir = cfg["semantic_dis_training"]["real_shapes_dir"]
+            self.real_shapes_paths = list(Path(real_shapes_dir).rglob('model_watertight.obj'))
+            pickle.dump(self.real_shapes_paths, open(real_image_paths_cache_path, 'wb'))
+        else:
+            self.real_shapes_paths = pickle.load(open(real_image_paths_cache_path, 'rb'))
+
+        self.cpu_device = torch.device("cpu")
+        self.mesh_num_verts = cfg["semantic_dis_training"]["mesh_num_verts"]
+        
+
+    def __len__(self):
+        return len(self.real_shapes_paths)
+
+    def __getitem__(self, idx):
+
+        mesh = utils.load_untextured_mesh(self.real_shapes_paths[idx], self.cpu_device)
+        points = pytorch3d.ops.sample_points_from_meshes(mesh, num_samples=self.mesh_num_verts)
+        # by remove batch dimension
+        points = torch.squeeze(points, dim=0)
+        # TODO: normalize, either here or at dis loss func?
+
+        return points
