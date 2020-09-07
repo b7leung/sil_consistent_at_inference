@@ -17,27 +17,21 @@ training:
   normal_consistency_lam: 10 # normal consistency loss [10*]
 
 semantic_dis_training:
-  dis_weight_path: ""
-  gen_weight_path: ""
-  real_dataset_dir: "data/semantic_dis/real_renders" # Path to folder with rendered images of real 3d models.
-  real_dataset_dir_sil: "data/semantic_dis_sil/real_renders" # Path to folder with rendered images of real 3d models.
 
-  # for adversarial
   batch_size: 16
-  adv_iterations: 3 #10
-  dis_epochs_per_iteration: 3 #5
-  gen_epochs_per_iteration: 2 #75
-  num_batches_gen_train: 10 #30
-  save_model_every: 100 # save model every n adversarial iterations
-  num_mesh_eval: 10
+  adv_iterations: 2
+  dis_epochs_per_iteration: 7
+  gen_epochs_per_iteration: 10
+  num_batches_gen_train: 30
+
   label_noise: 0
   real_label_offset: 0.05
-
-  transform_dis_inputs: false
-  
   sil_dis_input: true # whether to discirminate between rendered images, or rendered silhouette.
-  dis_input_size: 128 # {64, 128, 256}
+  dis_input_size: 64 # {64, 128, 256}
   randomize_dis_inputs: true
   gen_small_weights_init: false # note: this is overided if gen_weight_path is specified
+
+  save_model_every: 200 # save model every n adversarial iterations
+  num_mesh_eval: 10
 
 
