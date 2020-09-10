@@ -7,3 +7,4 @@ stderr_test.py
 out/
 data_prep_tools/ManifoldPlus/
 .vscode
+caches/
