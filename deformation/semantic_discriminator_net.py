@@ -10,6 +10,7 @@ class SemanticDiscriminatorNetwork(nn.Module):
         super().__init__()
         nc = 3
         ndf = 64
+        dropout_p = cfg["semantic_dis_training"]["dropout_p"]
         input_img_size = cfg["semantic_dis_training"]["dis_input_size"]
         if input_img_size == 64:
             self.main = nn.Sequential(
@@ -20,17 +21,17 @@ class SemanticDiscriminatorNetwork(nn.Module):
                 nn.Conv2d(ndf, ndf * 2, 4, 2, 1, bias=False),
                 nn.BatchNorm2d(ndf * 2),
                 nn.LeakyReLU(0.2, inplace=True),
-                nn.Dropout(p=0.8),
+                nn.Dropout(p=dropout_p),
                 # state size. (ndf*2) x 16 x 16
                 nn.Conv2d(ndf * 2, ndf * 4, 4, 2, 1, bias=False),
                 nn.BatchNorm2d(ndf * 4),
                 nn.LeakyReLU(0.2, inplace=True),
-                nn.Dropout(p=0.8),
+                nn.Dropout(p=dropout_p),
                 # state size. (ndf*4) x 8 x 8
                 nn.Conv2d(ndf * 4, ndf * 8, 4, 2, 1, bias=False),
                 nn.BatchNorm2d(ndf * 8),
                 nn.LeakyReLU(0.2, inplace=True),
-                nn.Dropout(p=0.8),
+                nn.Dropout(p=dropout_p),
                 # state size. (ndf*8) x 4 x 4
                 nn.Conv2d(ndf * 8, 1, 4, 1, 0, bias=False),
                 #nn.Sigmoid()
@@ -44,22 +45,22 @@ class SemanticDiscriminatorNetwork(nn.Module):
                 nn.Conv2d(ndf, ndf * 2, 4, 2, 1, bias=False),
                 nn.BatchNorm2d(ndf * 2),
                 nn.LeakyReLU(0.2, inplace=True),
-                nn.Dropout(p=0.8),
+                nn.Dropout(p=dropout_p),
                 # state size. (ndf*2) x 16 x 16
                 nn.Conv2d(ndf * 2, ndf * 4, 4, 2, 1, bias=False),
                 nn.BatchNorm2d(ndf * 4),
                 nn.LeakyReLU(0.2, inplace=True),
-                nn.Dropout(p=0.8),
+                nn.Dropout(p=dropout_p),
                 # state size. (ndf*4) x 8 x 8
                 nn.Conv2d(ndf * 4, ndf * 8, 4, 2, 1, bias=False),
                 nn.BatchNorm2d(ndf * 8),
                 nn.LeakyReLU(0.2, inplace=True),
-                nn.Dropout(p=0.8),
+                nn.Dropout(p=dropout_p),
                 # state size. (ndf*8) x 4 x 4
                 nn.Conv2d(ndf * 8, ndf * 16, 4, 2, 1, bias=False),
                 nn.BatchNorm2d(ndf * 16),
                 nn.LeakyReLU(0.2, inplace=True),
-                nn.Dropout(p=0.8),
+                nn.Dropout(p=dropout_p),
 
                 nn.Conv2d(ndf * 16, 1, 4, 1, 0, bias=False),
                 #nn.Sigmoid()
@@ -73,27 +74,27 @@ class SemanticDiscriminatorNetwork(nn.Module):
                 nn.Conv2d(ndf, ndf * 2, 4, 2, 1, bias=False),
                 nn.BatchNorm2d(ndf * 2),
                 nn.LeakyReLU(0.2, inplace=True),
-                nn.Dropout(p=0.8),
+                nn.Dropout(p=dropout_p),
                 # state size. (ndf*2) x 16 x 16
                 nn.Conv2d(ndf * 2, ndf * 4, 4, 2, 1, bias=False),
                 nn.BatchNorm2d(ndf * 4),
                 nn.LeakyReLU(0.2, inplace=True),
-                nn.Dropout(p=0.8),
+                nn.Dropout(p=dropout_p),
                 # state size. (ndf*4) x 8 x 8
                 nn.Conv2d(ndf * 4, ndf * 8, 4, 2, 1, bias=False),
                 nn.BatchNorm2d(ndf * 8),
                 nn.LeakyReLU(0.2, inplace=True),
-                nn.Dropout(p=0.8),
+                nn.Dropout(p=dropout_p),
                 # state size. (ndf*8) x 4 x 4
                 nn.Conv2d(ndf * 8, ndf * 16, 4, 2, 1, bias=False),
                 nn.BatchNorm2d(ndf * 16),
                 nn.LeakyReLU(0.2, inplace=True),
-                nn.Dropout(p=0.8),
+                nn.Dropout(p=dropout_p),
 
                 nn.Conv2d(ndf * 16, ndf * 32, 4, 2, 1, bias=False),
                 nn.BatchNorm2d(ndf * 32),
                 nn.LeakyReLU(0.2, inplace=True),
-                nn.Dropout(p=0.8),
+                nn.Dropout(p=dropout_p),
 
                 nn.Conv2d(ndf * 32, 1, 4, 1, 0, bias=False),
                 #nn.Sigmoid()

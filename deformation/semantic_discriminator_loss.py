@@ -9,10 +9,14 @@ from utils import utils
 from adversarial.datasets import dis_input_PIL_transforms
 
 
+def compute_points_sem_dis_logits(meshes_batch, semantic_discriminator_net, device, cfg):
+    logits = semantic_discriminator_net(meshes_batch.verts_padded())
+
+    return logits, None
+
 # computes semantic discriminator loss on a batch of meshes. Outputs [b,1] tensor, where b is batch size
-# TODO: currently only works on silhouette; generalize it to rgb renders
 # need to make sure this matches render settings for discriminator training set?
-def compute_sem_dis_logits(meshes_batch, semantic_discriminator_net, device, cfg):
+def compute_render_sem_dis_logits(meshes_batch, semantic_discriminator_net, device, cfg):
 
     num_render = cfg["training"]["semantic_dis_num_render"]
     random = cfg["semantic_dis_training"]["randomize_dis_inputs"]
@@ -46,12 +50,10 @@ def compute_sem_dis_logits(meshes_batch, semantic_discriminator_net, device, cfg
 
 
 # computes semantic discriminator loss on a batch of meshes
-def compute_sem_dis_loss(meshes_batch, num_render, semantic_discriminator_net, device, random, sil_dis_input):
-
-    logits, renders_binary_rgb = compute_sem_dis_loss(meshes_batch, num_render, semantic_discriminator_net, device, random, sil_dis_input)
+def compute_render_sem_dis_loss(meshes_batch, num_render, semantic_discriminator_net, device, random, sil_dis_input):
+    logits, renders_binary_rgb = compute_render_sem_dis_loss(meshes_batch, num_render, semantic_discriminator_net, device, random, sil_dis_input)
     loss = torch.sigmoid(logits)
     loss = torch.mean(loss)
-
     return loss, renders_binary_rgb
 
 
@@ -72,7 +74,7 @@ class SemanticDiscriminatorLoss():
     
     def compute_loss(self, mesh):
         self.semantic_discriminator_net.eval()
-        return compute_sem_dis_loss(mesh, self.num_render, self.semantic_discriminator_net, self.device)
+        return compute_render_sem_dis_loss(mesh, self.num_render, self.semantic_discriminator_net, self.device)
 
     def compute_loss_old(self, mesh):
         # need to make sure this matches render settings for discriminator training set
