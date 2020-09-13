@@ -60,13 +60,13 @@ class GenerationDataset(Dataset):
         # computing cache for entire dataset
         self.recompute_cache = cfg['semantic_dis_training']['recompute_input_mesh_cache']
         self.use_cache = cfg['semantic_dis_training']['use_input_mesh_cache']
-        self.input_mesh_cache_path = "caches/generation_dataset_cache.pt"
+        self.input_mesh_cache_path = "caches/generation_dataset_cache_{}.pt".format(len(self.dataset_meshes_list))
         if self.recompute_cache or (self.use_cache and not os.path.exists(self.input_mesh_cache_path)):
             print("Caching generation dataset...")
             self.cached_data = [self.getitem_scratch(i) for i in tqdm(range(self.__len__()))]
             torch.save(self.cached_data, self.input_mesh_cache_path)
         elif self.use_cache:
-            print("Loading cached generation dataset...")
+            print("Loading cached generation dataset at {}...".format(self.input_mesh_cache_path))
             self.cached_data = torch.load(self.input_mesh_cache_path)
             # gotcha for case where num_batches_gen_train has changed
             if len(self.cached_data) != len(self.dataset_meshes_list):
@@ -170,6 +170,7 @@ class ShapenetPointsDataset(Dataset):
     def __init__(self, cfg):
 
         sampled_points_path = cfg["semantic_dis_training"]["sampled_points_path"]
+        self.DEBUG_single_real = cfg["semantic_dis_training"]["DEBUG_single_real"]
         self.cached_sampled_points = torch.load(sampled_points_path)
 
 
@@ -178,7 +179,10 @@ class ShapenetPointsDataset(Dataset):
 
 
     def __getitem__(self, idx):
-        return self.cached_sampled_points[idx]
+        if self.DEBUG_single_real:
+            return self.cached_sampled_points[0]
+        else:
+            return self.cached_sampled_points[idx]
 
 
 class FromScratchShapenetPointsDataset(Dataset):

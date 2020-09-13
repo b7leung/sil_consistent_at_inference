@@ -17,6 +17,7 @@ model:
   latent_dim_resnet: 256
   decoder_dim: 1024
   output_delta_V: true # if, conceptually, the model should be outputting delta V (just the displacement), or the entire (delta V + V)
+  gen_decay: 0.0001
 
 
 training:
@@ -60,21 +61,28 @@ semantic_dis_training:
   dis_epochs_per_iteration: 30
   gen_epochs_per_iteration: 100
   num_batches_gen_train: 30
+  early_stop_dis_acc: -1 # stops training of discriminator early if avg acc of last 10 batches is >= this threshold, in [0,1]. to disable,set to -1
 
   # discriminator options 
-  dis_type: "renders" # type of discriminator input, in {renders, pointnet}
+  dis_type: "renders" # type of discriminator input, in {renders, points}
   dropout_p: 0.8 # amount of dropout to use in discriminator network
-  dis_learning_rate: 0.00001
 
   # for dis_type = pointnet
   real_shapes_dir: "/home/svcl-oowl/dataset/ShapeNetCore.v1/03001627"
   sampled_points_path: "data/real_sampled_points/shapenet_chairs_1502.pt"
   recompute_cache: false
+  dis_points_lr: 0.00001
+  dis_points_decay: 0.01
+  dis_points_encoder: "pointnet" # in {pointnet, fc}
+  DEBUG_single_real: false
+  
 
   # for dis_type = renders
   real_dataset_dir: "data/semantic_dis/real_renders" # Path to folder with rendered images of real 3d models.
   real_dataset_dir_sil: "data/semantic_dis_sil/real_renders" # Path to folder with rendered images of real 3d models.
   fake_dataset_dir: "data/semantic_dis_sil/fake_renders" # Path to folder with rendered images of fake 3d models.
+  dis_renders_lr: 0.00001
+  dis_renders_decay: 0.01
   transform_dis_inputs: false
   sil_dis_input: true # whether to discirminate between rendered images, or rendered silhouette.
   dis_input_size: 64 # {64, 128, 256} # size of input image of discriminator. Note that this will increase the gpu memory substantially, so may need to lower semantic_dis_num_render

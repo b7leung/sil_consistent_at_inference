@@ -14,6 +14,7 @@ def compute_points_sem_dis_logits(meshes_batch, semantic_discriminator_net, devi
 
     return logits, None
 
+
 # computes semantic discriminator loss on a batch of meshes. Outputs [b,1] tensor, where b is batch size
 # need to make sure this matches render settings for discriminator training set?
 def compute_render_sem_dis_logits(meshes_batch, semantic_discriminator_net, device, cfg):

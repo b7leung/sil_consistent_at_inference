@@ -1,42 +1,42 @@
 
 training:
-  num_iterations: 400
-  learning_rate: 0.00008 #[0.00001*]
-
   semantic_dis_num_render: 8
-  semantic_dis_lam: 10 # semantic discriminator loss weight
+  semantic_dis_lam: 100 # semantic discriminator loss weight
 
   img_sym_num_azim: 1 #[1*]
   img_sym_lam: 50 # image-based symmetry loss [100*]
 
-  sil_lam: 8 # silouette loss. [5*]
-  vertex_sym_lam: 0.1 # vertex-based symmetry loss [0.1*]
+  sil_lam: 0 # silouette loss. [5*]
+  vertex_sym_lam: 0.0 # vertex-based symmetry loss [0.1*]
 
-  l2_lam: 0.5 # l2 loss on delta v  [1*]
+  l2_lam: 0.2 # l2 loss on delta v  [1*]
   lap_smoothness_lam: 10  # laplacian smoothing loss [10*]
   normal_consistency_lam: 10 # normal consistency loss [10*]
 
 semantic_dis_training:
-  dis_weight_path: ""
-  gen_weight_path: ""
-
-  # for adversarial
-  batch_size: 16
-  adv_iterations: 20
-  dis_epochs_per_iteration: 30
-  gen_epochs_per_iteration: 100
-  num_batches_gen_train: -1 # ***
   save_model_every: 2 # save model every n adversarial iterations
-  num_mesh_eval: 10
+
+  # training details
+  real_label_offset: 0
   label_noise: 0
-  real_label_offset: 0.05
+  batch_size: 16
+  adv_iterations: 30
+  dis_epochs_per_iteration: 5
+  gen_epochs_per_iteration: 40
+  num_batches_gen_train: 30
 
-  transform_dis_inputs: false
+  # discriminator options 
+  dis_type: "points" # type of discriminator input, in {renders, points}
+  dropout_p: 0 # amount of dropout to use in discriminator network
 
-  gen_small_weights_init: false # note: this is overided if gen_weight_path is specified # ***
-  randomize_dis_inputs: false # ***
+  # for dis_type = pointnet
+  recompute_cache: false
+  dis_points_lr: 0.00003 #0.0001
+  dis_points_decay: 0.0001
+  dis_points_encoder: "pointnet" # in {pointnet, fc}
 
-
-
-
-
+  # for dis_type = renders
+  sil_dis_input: true # whether to discirminate between rendered images, or rendered silhouette.
+  dis_input_size: 64 # {64, 128, 256} # size of input image of discriminator. Note that this will increase the gpu memory substantially, so may need to lower semantic_dis_num_render
+  randomize_dis_inputs: true
+ 
