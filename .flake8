@@ -9,5 +9,5 @@ ignore =
     E303,
     # expected blank line
     E301,
-    E701, E261, E221, E231, E305, W291, W293
+    E701, E261, E221, E231, E305, W291, W293, E265
 
