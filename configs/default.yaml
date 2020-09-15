@@ -19,12 +19,14 @@ model:
   output_delta_V: true # if, conceptually, the model should be outputting delta V (just the displacement), or the entire (delta V + V)
 
 
-training:
+# parameters for test-time optimization
+refinement:
   num_iterations: 700
   learning_rate: 0.00008 #[0.00001*]
 
-  #semantic_dis_weight_path: "out/2020_08_24--06_45_44_dcgan_dis_drop8/weights_epoch_3.pt"
-  semantic_dis_num_render: 8
+
+# loss function parameters
+training:
   semantic_dis_lam: 0 # semantic discriminator loss weight
 
   img_sym_num_azim: 1 #[1*]
@@ -38,6 +40,7 @@ training:
   normal_consistency_lam: 0 # normal consistency loss [10*]
 
 
+# parameters for the generator and discriminator
 semantic_dis_training:
   # basic setup configs
   output_dir: "out" # Path to folder to output saved weights and training pickle
@@ -74,7 +77,7 @@ semantic_dis_training:
   dis_type: "renders" # type of discriminator input, in {renders, points, mesh}
   dropout_p: 0.8 # amount of dropout to use in discriminator network
 
-  # for dis_type = pointnet
+  # for dis_type = points
   real_shapes_dir: "/home/svcl-oowl/dataset/ShapeNetCore.v1/03001627"
   sampled_points_path: "data/real_sampled_points/shapenet_chairs_1502.pt"
   recompute_cache: false
@@ -83,13 +86,11 @@ semantic_dis_training:
   dis_points_encoder: "pointnet" # in {pointnet, fc, rgan}
   DEBUG_single_real: false
 
-  # for dis_type = mesh
-
-
   # for dis_type = renders
   real_dataset_dir: "data/semantic_dis/real_renders" # Path to folder with rendered images of real 3d models.
   real_dataset_dir_sil: "data/semantic_dis_sil/real_renders" # Path to folder with rendered images of real 3d models.
   fake_dataset_dir: "data/semantic_dis_sil/fake_renders" # Path to folder with rendered images of fake 3d models.
+  semantic_dis_num_render: 8
   dis_renders_lr: 0.00001
   dis_renders_decay: 0.01
   transform_dis_inputs: false
