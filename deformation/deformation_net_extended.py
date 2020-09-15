@@ -9,7 +9,7 @@ class DeformationNetworkExtended(nn.Module):
 
     def __init__(self, cfg, num_vertices, device):
         super().__init__()
-
+        self.device = device
         self.num_vertices = num_vertices
         point_encoder_name = cfg['model']['point_encoder']
         image_encoder_name = cfg['model']['image_encoder']
@@ -77,13 +77,18 @@ class DeformationNetworkExtended(nn.Module):
             self.deform_net.apply(network_utils.weights_init_normal)
 
     
-    def forward(self, pose, image, mesh_vertices):
+    def forward(self, input_batch):
         '''
         Args (b is batch size):
             pose (tensor): a b x 3 tensor specifying distance, elevation, azimuth (in that order)
             image (tensor): a b x 3 x 224 x 224 image which is segmented.
             mesh_vertices (tensor): a b x num_vertices x 3 tensor of vertices (ie, a pointcloud)
         '''
+
+        mesh_vertices = input_batch["mesh_verts"].to(self.device)
+        image = input_batch["image"].to(self.device)
+        pose = input_batch["pose"].to(self.device)
+
         if mesh_vertices.shape[1] != self.num_vertices:
             raise ValueError("num_vertices does not match number of vertices of input mesh")
         
