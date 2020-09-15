@@ -14,7 +14,7 @@ from utils import utils
 from deformation.deformation_net import DeformationNetwork
 from mesh_refiner import MeshRefiner
 import deformation.losses as def_losses
-from pose_est import brute_force_pose_est
+from utils import brute_force_pose_est
 
 
 # predicts poses of a dataset

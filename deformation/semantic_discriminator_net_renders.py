@@ -2,7 +2,7 @@
 import torch
 import torch.nn as nn
 
-class SemanticDiscriminatorNetwork(nn.Module):
+class RendersSemanticDiscriminatorNetwork(nn.Module):
 
     # DCGAN inspired discirminator, based on code from:
     # https://pytorch.org/tutorials/beginner/dcgan_faces_tutorial.html
