@@ -172,6 +172,7 @@ class ShapenetPointsDataset(Dataset):
         sampled_points_path = cfg["semantic_dis_training"]["sampled_points_path"]
         self.DEBUG_single_real = cfg["semantic_dis_training"]["DEBUG_single_real"]
         self.cached_sampled_points = torch.load(sampled_points_path)
+        # TODO: check alignment with fake chairs
 
 
     def __len__(self):

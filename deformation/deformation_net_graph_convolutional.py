@@ -25,7 +25,16 @@ class DeformationNetworkGraphConvolutional(nn.Module):
         self.gconvs.append(pytorch3d.ops.GraphConv(input_dim=hidden_dim, output_dim=hidden_dim))
         self.gconvs.append(pytorch3d.ops.GraphConv(input_dim=hidden_dim, output_dim=hidden_dim))
 
-        self.vert_offset = nn.Linear(hidden_dim, 3)
+        self.vert_offset = nn.Sequential(
+            #nn.Linear(hidden_dim, hidden_dim),
+            #nn.ReLU(),
+            #nn.Linear(hidden_dim, hidden_dim),
+            #nn.ReLU(),
+            #nn.Linear(hidden_dim, hidden_dim),
+            #nn.ReLU(),
+            #nn.Linear(hidden_dim, hidden_dim),
+            #nn.ReLU(),
+            nn.Linear(hidden_dim, 3))
 
     
     def forward(self, input_batch):
@@ -46,6 +55,7 @@ class DeformationNetworkGraphConvolutional(nn.Module):
             # TODO: also add original coordinate?
 
         delta_v = torch.tanh(self.vert_offset(batch_vertex_features))
+        #delta_v = (self.vert_offset(batch_vertex_features))
 
         return delta_v
 
