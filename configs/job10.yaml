@@ -22,9 +22,9 @@ semantic_dis_training:
   batch_size: 32
   adv_iterations: 100
   dis_epochs_per_iteration: 15
-  gen_epochs_per_iteration: 30
+  gen_epochs_per_iteration: 25
   num_batches_gen_train: -1
-  early_stop_dis_acc: -1 # stops training of discriminator early if avg acc of last 10 batches is >= this threshold, in [0,1]. to disable,set to -1
+  early_stop_dis_acc: 0.8 # stops training of discriminator early if avg acc of last 10 batches is >= this threshold, in [0,1]. to disable,set to -1
 
   # generator options
   deform_net_type: "gcn" # {pointnet, gcn}

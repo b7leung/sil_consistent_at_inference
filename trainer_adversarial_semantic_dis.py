@@ -16,6 +16,7 @@ import numpy as np
 from utils import utils
 from deformation.deformation_net import DeformationNetwork
 from deformation.deformation_net_graph_convolutional import DeformationNetworkGraphConvolutional
+from deformation.deformation_net_graph_convolutional_PN import DeformationNetworkGraphConvolutionalPN
 from utils.datasets import GenerationDataset, ShapenetRendersDataset, ShapenetPointsDataset
 from deformation.semantic_discriminator_net_renders import RendersSemanticDiscriminatorNetwork
 from deformation.semantic_discriminator_net_points import PointsSemanticDiscriminatorNetwork
@@ -118,6 +119,9 @@ class AdversarialDiscriminatorTrainer():
             gen_lr = self.cfg["semantic_dis_training"]["gen_pointnet_lr"]
         elif deform_net_type == "gcn":
             deform_net = DeformationNetworkGraphConvolutional(self.cfg, self.cfg["semantic_dis_training"]["mesh_num_verts"], self.device)
+            gen_lr = self.cfg["semantic_dis_training"]["gen_gcn_lr"]
+        elif deform_net_type == "gcn_pn":
+            deform_net = DeformationNetworkGraphConvolutionalPN(self.cfg, self.cfg["semantic_dis_training"]["mesh_num_verts"], self.device)
             gen_lr = self.cfg["semantic_dis_training"]["gen_gcn_lr"]
         else:
             raise ValueError("generator deform net type not recognized")

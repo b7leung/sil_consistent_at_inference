@@ -8,6 +8,8 @@ import pandas as pd
 
 from deformation.deformation_net import DeformationNetwork
 from deformation.deformation_net_graph_convolutional import DeformationNetworkGraphConvolutional
+from deformation.deformation_net_graph_convolutional_PN import DeformationNetworkGraphConvolutionalPN
+from deformation.deformation_net_graph_convolutional_full import DeformationNetworkGraphConvolutionalFull
 from deformation.semantic_discriminator_net_renders import RendersSemanticDiscriminatorNetwork
 from deformation.semantic_discriminator_net_points import PointsSemanticDiscriminatorNetwork
 from deformation.forward_pass import batched_forward_pass
@@ -41,6 +43,10 @@ class MeshRefiner():
             deform_net = DeformationNetwork(self.cfg, self.cfg["semantic_dis_training"]["mesh_num_verts"], self.device)
         elif deform_net_type == "gcn":
             deform_net = DeformationNetworkGraphConvolutional(self.cfg, self.cfg["semantic_dis_training"]["mesh_num_verts"], self.device)
+        elif deform_net_type == "gcn_full":
+            deform_net = DeformationNetworkGraphConvolutionalFull(self.cfg, self.cfg["semantic_dis_training"]["mesh_num_verts"], self.device)
+        elif deform_net_type == "gcn_pn":
+            deform_net = DeformationNetworkGraphConvolutionalPN(self.cfg, self.cfg["semantic_dis_training"]["mesh_num_verts"], self.device)
         else:
             raise ValueError("generator deform net type not recognized")
         if self.gen_weight_path != "":
@@ -87,6 +93,7 @@ class MeshRefiner():
         semantic_dis_net = self.setup_discriminator()
         deform_net = self.setup_generator()
         optimizer = optim.Adam(deform_net.parameters(), lr=self.lr)
+        #optimizer = optim.Adam(deform_net.parameters(), lr=self.lr, weight_decay=0.1)
 
         # optimizing  
         loss_info = pd.DataFrame()
