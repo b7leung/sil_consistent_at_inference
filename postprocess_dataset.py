@@ -14,7 +14,11 @@ from utils import utils
 from deformation.deformation_net import DeformationNetwork
 from mesh_refiner import MeshRefiner
 import deformation.losses as def_losses
+<<<<<<< HEAD
 from utils.brute_force_pose_est import brute_force_estimate_pose
+=======
+from utils import brute_force_pose_est
+>>>>>>> 426e913ac201dfaee15d883f3e3332aec9fed132
 
 
 # predicts poses of a dataset
@@ -33,7 +37,11 @@ def predict_pose(cfg, device, meshes_to_process):
         mask = np.asarray(Image.open(img_path))[:,:,3] > 0
         with torch.no_grad():
             mesh = utils.load_untextured_mesh(mesh_path, device)
+<<<<<<< HEAD
             pred_azim, pred_elev, pred_dist, renders, iou = brute_force_estimate_pose(mesh, mask, num_azims, num_elevs, num_dists, device, 8)
+=======
+            pred_azim, pred_elev, pred_dist, renders = brute_force_pose_est.brute_force_estimate_pose(mesh, mask, num_azims, num_elevs, num_dists, device, 8)
+>>>>>>> 426e913ac201dfaee15d883f3e3332aec9fed132
             cached_pred_poses[instance_name] = {"azim": pred_azim.item(), "elev": pred_elev.item(), "dist": pred_dist.item()}
 
     return cached_pred_poses
