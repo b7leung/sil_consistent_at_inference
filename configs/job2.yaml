@@ -1,10 +1,10 @@
 
 training:
   semantic_dis_num_render: 8
-  semantic_dis_lam: 10 # semantic discriminator loss weight
+  semantic_dis_lam: 0 # semantic discriminator loss weight
 
   img_sym_num_azim: 1 #[1*]
-  img_sym_lam: 0 # image-based symmetry loss [100*]
+  img_sym_lam: 50 # image-based symmetry loss [100*]
 
   sil_lam: 10 # silouette loss. [5*]
   vertex_sym_lam: 0 # vertex-based symmetry loss [0.1*]
@@ -14,20 +14,20 @@ training:
   normal_consistency_lam: 10 # normal consistency loss [10*]
 
 semantic_dis_training:
-  save_model_every: 5 # save model every n adversarial iterations
+  save_model_every: 10 # save model every n adversarial iterations
 
   # training details
   real_label_offset: 0
   label_noise: 0
   batch_size: 16
-  adv_iterations: 100
-  dis_epochs_per_iteration: 15
-  gen_epochs_per_iteration: 25
+  adv_iterations: 200
+  dis_epochs_per_iteration: 0
+  gen_epochs_per_iteration: 1
   num_batches_gen_train: 30
   early_stop_dis_acc: 0.8 # stops training of discriminator early if avg acc of last 10 batches is >= this threshold, in [0,1]. to disable,set to -1
 
   # generator options
-  deform_net_type: "gcn" # {pointnet, gcn}
+  deform_net_type: "gcn_pn" # {pointnet, gcn, gcn_pn}
   gen_data_type: "standard" # {standard, deform_sphere_debug}
   gen_pointnet_lr: 0.00008
   gen_gcn_lr: 0.00008

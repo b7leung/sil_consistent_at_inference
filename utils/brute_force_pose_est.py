@@ -36,7 +36,10 @@ from utils import utils
 # there are two steps: 1) finding the azimuth and elevation and 2) find the distance
 # the additional requirement that the entire mesh should fit in the image after rendered at the estimated pose is also enforced 
 # (the distance chosen must satisfy this)
-def brute_force_estimate_pose(mesh, mask, num_azims, num_elevs, num_dists, device, batch_size = 8):
+# inputs:
+# - mesh: pytorch 3d mesh object
+# - mask: a boolean 2D array
+def brute_force_estimate_pose(mesh, mask, num_azims, num_elevs, num_dists, device, batch_size=8):
     torch.cuda.set_device(device)
     with torch.no_grad():
         # rendering at many different azimuth and elevation combinations on a sphere
@@ -78,8 +81,10 @@ def brute_force_estimate_pose(mesh, mask, num_azims, num_elevs, num_dists, devic
         while not rendered_image_fits[i]:
             i+=1
         pred_dist = dists[iou_argsort[i]]
+        iou = iou_calcs[iou_argsort[i]]
+        render = renders[iou_argsort[i]]
         
-    return pred_azim, pred_elev, pred_dist, renders
+    return pred_azim, pred_elev, pred_dist, render, iou
 
 
 def crop_binary_mask(mask):

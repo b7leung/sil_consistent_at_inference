@@ -1,0 +1,21 @@
+ninja_required_version = 1.3
+cxx = c++
+
+cflags = -pthread -B /opt/conda/envs/standard/compiler_compat -Wl,--sysroot=/ -Wsign-compare -DNDEBUG -g -fwrapv -O3 -Wall -Wstrict-prototypes -fPIC -I/opt/conda/envs/standard/include/python3.6m -c
+post_cflags = -std=c99 -O3 -fopenmp -DTORCH_API_INCLUDE_EXTENSION_H -DTORCH_EXTENSION_NAME=kdtree -D_GLIBCXX_USE_CXX11_ABI=0
+ldflags = 
+
+rule compile
+  command = $cxx -MMD -MF $out.d $cflags -c $in -o $out $post_cflags
+  depfile = $out.d
+  deps = gcc
+
+
+
+build /home/svcl-oowl/brandon/research/sil_consistent_at_inference/build/temp.linux-x86_64-3.6/im2mesh/utils/libkdtree/pykdtree/kdtree.o: compile /home/svcl-oowl/brandon/research/sil_consistent_at_inference/im2mesh/utils/libkdtree/pykdtree/kdtree.c
+build /home/svcl-oowl/brandon/research/sil_consistent_at_inference/build/temp.linux-x86_64-3.6/im2mesh/utils/libkdtree/pykdtree/_kdtree_core.o: compile /home/svcl-oowl/brandon/research/sil_consistent_at_inference/im2mesh/utils/libkdtree/pykdtree/_kdtree_core.c
+
+
+
+
+

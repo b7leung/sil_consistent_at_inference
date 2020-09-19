@@ -67,7 +67,7 @@ semantic_dis_training:
 
 
   # generator options
-  deform_net_type: "pointnet" # {pointnet, gcn}
+  deform_net_type: "pointnet" # {pointnet, gcn, gcn_pn}
   gen_data_type: "standard" # {standard, deform_sphere_debug}
   gen_pointnet_lr: 0.00008
   gen_gcn_lr: 0.00008
