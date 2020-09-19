@@ -8,9 +8,5 @@ out/
 data_prep_tools/ManifoldPlus/
 .vscode
 caches/
-<<<<<<< HEAD
 data_evaluation/
 core.375
-=======
-data_evaluation/
->>>>>>> 426e913ac201dfaee15d883f3e3332aec9fed132
