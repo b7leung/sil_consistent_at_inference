@@ -1,6 +1,6 @@
 dataset:
-  input_dir_mesh: "data/test_dataset_one" # Path to folder with meshes to postprocess.
-  input_dir_img: "data/test_dataset_one" # Path to folder with images for meshes.
+  input_dir_mesh: "data/test_dataset" # Path to folder with meshes to postprocess.
+  input_dir_img: "data/test_dataset" # Path to folder with images for meshes.
 
 
 # parameters for test-time optimization

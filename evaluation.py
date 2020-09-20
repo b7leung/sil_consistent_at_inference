@@ -14,10 +14,11 @@ import torch
 import pytorch3d
 import pytorch3d.loss
 from PIL import Image
+from pytorch3d.renderer import look_at_view_transform
 
 from utils import utils
 from utils import eval_utils
-from utils.brute_force_pose_est import brute_force_estimate_pose
+from utils.brute_force_pose_est import brute_force_estimate_pose, get_iou
 import inside_mesh
 
 
@@ -31,6 +32,14 @@ def sample_points(mesh_verts, num_points):
 def compute_iou_2d(rec_mesh_torch, input_img, device, num_azims=20, num_elevs=20, num_dists=20):
     mask = np.asarray(input_img)[:,:,3] > 0
     _, _, _, render, iou = brute_force_estimate_pose(rec_mesh_torch, mask, num_azims, num_elevs, num_dists, device)
+    return iou
+
+
+def compute_iou_2d_given_pose(rec_mesh_torch, input_img, device, azim, elev, dist):
+    mask = np.asarray(input_img)[:,:,3] > 0
+    R, T = look_at_view_transform(dist, elev, azim) 
+    render = utils.render_mesh(rec_mesh_torch, R, T, device)[0]
+    iou = get_iou(render.cpu().numpy(), mask)   
     return iou
 
 
