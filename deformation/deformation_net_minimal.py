@@ -5,7 +5,7 @@ from .pointnet import SimplePointnet, ResnetPointnet, ResnetPointnetExtended
 from .resnet import Resnet18, Resnet34
 from utils import network_utils
 
-class DeformationNetwork(nn.Module):
+class DeformationNetworkMinimal(nn.Module):
 
     def __init__(self, cfg, num_vertices, device):
         super().__init__()
@@ -34,7 +34,8 @@ class DeformationNetwork(nn.Module):
 
         if deformation_decoder_name == "FCStandard":
             self.deform_net = nn.Sequential(
-                nn.Linear(pointnet_encoding_dim+resnet_encoding_dim+3, decoder_dim),
+                #nn.Linear(pointnet_encoding_dim+resnet_encoding_dim+3, decoder_dim),
+                nn.Linear(pointnet_encoding_dim, decoder_dim),
                 nn.ReLU(),
                 nn.Linear(decoder_dim, decoder_dim),
                 nn.ReLU(),
@@ -86,16 +87,17 @@ class DeformationNetwork(nn.Module):
         '''
 
         mesh_vertices = input_batch["mesh_verts"].to(self.device)
-        image = input_batch["image"].to(self.device)
-        pose = input_batch["pose"].to(self.device)
+        #image = input_batch["image"].to(self.device)
+        #pose = input_batch["pose"].to(self.device)
 
         if mesh_vertices.shape[1] != self.num_vertices:
             raise ValueError("num_vertices does not match number of vertices of input mesh")
         
-        image_encoding = self.resnet_encoder(image)
+        #image_encoding = self.resnet_encoder(image)
         verts_encoding = self.pointnet_encoder(mesh_vertices)
-        combined_encoding = torch.cat((pose, image_encoding, verts_encoding), 1)
+        #combined_encoding = torch.cat((pose, image_encoding, verts_encoding), 1)
 
-        delta_v = self.deform_net(combined_encoding)
+        delta_v = self.deform_net(verts_encoding)
+        #delta_v = self.deform_net(combined_encoding)
         return delta_v
 

@@ -1,4 +1,5 @@
 # https://github.com/autonomousvision/occupancy_networks/blob/master/im2mesh/common.py
+# https://gist.github.com/LMescheder/b5e03ffd1bf8a0dfbb984cacc8c99532
 
 import torch
 import numpy as np

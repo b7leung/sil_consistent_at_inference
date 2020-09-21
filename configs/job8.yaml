@@ -14,7 +14,7 @@ training:
   normal_consistency_lam: 10 # normal consistency loss [10*]
 
 semantic_dis_training:
-  save_model_every: 5 # save model every n adversarial iterations
+  save_model_every: 10 # save model every n adversarial iterations
 
   # training details
   real_label_offset: 0
@@ -23,14 +23,14 @@ semantic_dis_training:
   adv_iterations: 100
   dis_epochs_per_iteration: 15
   gen_epochs_per_iteration: 25
-  num_batches_gen_train: 30
+  num_batches_gen_train: -1
   early_stop_dis_acc: 0.8 # stops training of discriminator early if avg acc of last 10 batches is >= this threshold, in [0,1]. to disable,set to -1
 
   # generator options
-  deform_net_type: "gcn" # {pointnet, gcn}
+  deform_net_type: "gcn_full" # {pointnet, gcn, gcn_pn, gcn_full}
   gen_data_type: "standard" # {standard, deform_sphere_debug}
-  gen_pointnet_lr: 0.00008
-  gen_gcn_lr: 0.00008
+  gen_pointnet_lr: 0.00001
+  gen_gcn_lr: 0.00001
   gen_decay: 0.0001
 
   # discriminator options 

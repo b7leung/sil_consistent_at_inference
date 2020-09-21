@@ -11,23 +11,23 @@ from utils import network_utils
 from utils import coords
 
 # based on https://github.com/facebookresearch/meshrcnn/blob/89b59e6df2eb09b8798eae16e204f75bb8dc92a7/shapenet/modeling/heads/mesh_head.py
-class DeformationNetworkGraphConvolutionalFull(nn.Module):
+class DeformationNetworkGraphConvolutionalFullRes(nn.Module):
 
     def __init__(self, cfg, num_vertices, device):
         super().__init__()
         self.device = device
         self.num_vertices = num_vertices
-        hidden_dim = 256
+        hidden_dim = 128
+
+        resnet_encoding_dim = 256
+        self.resnet_encoder = Resnet18(c_dim=resnet_encoding_dim)
 
         self.backbone, self.feat_dims = build_backbone("resnet50")
         img_feat_dim = sum(self.feat_dims)
         self.bottleneck = nn.Linear(img_feat_dim, hidden_dim)
 
         self.gconvs = nn.ModuleList()
-        self.gconvs.append(pytorch3d.ops.GraphConv(input_dim=3+hidden_dim, output_dim=hidden_dim))
-        self.gconvs.append(pytorch3d.ops.GraphConv(input_dim=hidden_dim, output_dim=hidden_dim))
-        self.gconvs.append(pytorch3d.ops.GraphConv(input_dim=hidden_dim, output_dim=hidden_dim))
-        self.gconvs.append(pytorch3d.ops.GraphConv(input_dim=hidden_dim, output_dim=hidden_dim))
+        self.gconvs.append(pytorch3d.ops.GraphConv(input_dim=3+resnet_encoding_dim+hidden_dim, output_dim=hidden_dim))
         self.gconvs.append(pytorch3d.ops.GraphConv(input_dim=hidden_dim, output_dim=hidden_dim))
         self.gconvs.append(pytorch3d.ops.GraphConv(input_dim=hidden_dim, output_dim=hidden_dim))
         self.gconvs.append(pytorch3d.ops.GraphConv(input_dim=hidden_dim, output_dim=hidden_dim))
@@ -46,7 +46,6 @@ class DeformationNetworkGraphConvolutionalFull(nn.Module):
             image (tensor): a b x 3 x 224 x 224 image which is segmented.
             mesh_vertices (tensor): a b x num_vertices x 3 tensor of vertices (ie, a pointcloud)
         '''
-        
         images = input_batch["image"].to(self.device)
         mesh_batch = input_batch["mesh"].to(self.device)
         poses = input_batch["pose"].to(self.device)
@@ -65,6 +64,10 @@ class DeformationNetworkGraphConvolutionalFull(nn.Module):
         # appending original cordinates to vert_align features
         # not sure if original vertices or aligned/normalized vertices should be appended
         batch_vertex_features = torch.cat([vert_align_feats, mesh_batch.verts_packed()], dim=1)
+
+        # appending resnet encoding to each vertex
+        image_encodings = self.resnet_encoder(images)
+        batch_vertex_features = torch.cat([batch_vertex_features, torch.repeat_interleave(image_encodings, self.num_vertices, dim=0)], 1)
 
         for i in range(len(self.gconvs)):
             batch_vertex_features = F.relu(self.gconvs[i](batch_vertex_features, mesh_batch.edges_packed()))

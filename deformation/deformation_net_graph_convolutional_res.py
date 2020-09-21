@@ -8,19 +8,19 @@ from .pointnet import SimplePointnet, ResnetPointnet, ResnetPointnetExtended
 from .resnet import Resnet18, Resnet34
 from utils import network_utils
 
-class DeformationNetworkGraphConvolutionalPN(nn.Module):
+class DeformationNetworkGraphConvolutionalRes(nn.Module):
 
     def __init__(self, cfg, num_vertices, device):
         super().__init__()
         self.device = device
         self.num_vertices = num_vertices
 
-        pointnet_encoding_dim = 256
-        self.pointnet_encoder = ResnetPointnet(c_dim=pointnet_encoding_dim, hidden_dim=pointnet_encoding_dim)
+        resnet_encoding_dim = cfg['model']['latent_dim_resnet']
+        self.resnet_encoder = Resnet18(c_dim=resnet_encoding_dim)
 
         gconvs_hidden_dim = 256
         self.gconvs = nn.ModuleList()
-        self.gconvs.append(pytorch3d.ops.GraphConv(input_dim=3+pointnet_encoding_dim, output_dim=gconvs_hidden_dim))
+        self.gconvs.append(pytorch3d.ops.GraphConv(input_dim=3+resnet_encoding_dim, output_dim=gconvs_hidden_dim))
         self.gconvs.append(pytorch3d.ops.GraphConv(input_dim=gconvs_hidden_dim, output_dim=gconvs_hidden_dim))
         self.gconvs.append(pytorch3d.ops.GraphConv(input_dim=gconvs_hidden_dim, output_dim=gconvs_hidden_dim))
         self.gconvs.append(pytorch3d.ops.GraphConv(input_dim=gconvs_hidden_dim, output_dim=gconvs_hidden_dim))
@@ -56,12 +56,12 @@ class DeformationNetworkGraphConvolutionalPN(nn.Module):
         # TODO: make sure this also works for batched cases
 
         mesh_batch = input_batch["mesh"].to(self.device)
-        mesh_vertices = input_batch["mesh_verts"].to(self.device)
+        image = input_batch["image"].to(self.device)
 
-        # appending pointnet latent vector to each vertex
-        verts_encodings = self.pointnet_encoder(mesh_vertices)
+        # appending resnet encoding to each vertex
+        image_encodings = self.resnet_encoder(image)
         mesh_verts_packed = mesh_batch.verts_packed()
-        batch_vertex_features = torch.cat([mesh_verts_packed, torch.repeat_interleave(verts_encodings, self.num_vertices, dim=0)], 1)
+        batch_vertex_features = torch.cat([mesh_verts_packed, torch.repeat_interleave(image_encodings, self.num_vertices, dim=0)], 1)
 
         # Graph conv layers
         for i in range(len(self.gconvs)):

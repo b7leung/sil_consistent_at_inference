@@ -11,10 +11,8 @@ import numpy as np
 from pytorch3d.io import save_obj
 
 from utils import utils
-from deformation.deformation_net import DeformationNetwork
 from mesh_refiner import MeshRefiner
-import deformation.losses as def_losses
-from utils import brute_force_pose_est
+from utils.brute_force_pose_est import brute_force_estimate_pose
 
 
 # predicts poses of a dataset

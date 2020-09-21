@@ -20,6 +20,7 @@ from utils import utils
 from utils import eval_utils
 from utils.brute_force_pose_est import brute_force_estimate_pose, get_iou
 import inside_mesh
+# https://github.com/autonomousvision/occupancy_networks/blob/master/im2mesh/eval.py
 
 
 def sample_points(mesh_verts, num_points):

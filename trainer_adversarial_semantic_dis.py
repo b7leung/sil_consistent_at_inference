@@ -13,10 +13,15 @@ from tqdm.autonotebook import tqdm
 import pandas as pd
 import numpy as np
 
-from utils import utils
 from deformation.deformation_net import DeformationNetwork
+from deformation.deformation_net_minimal import DeformationNetworkMinimal
 from deformation.deformation_net_graph_convolutional import DeformationNetworkGraphConvolutional
 from deformation.deformation_net_graph_convolutional_PN import DeformationNetworkGraphConvolutionalPN
+from deformation.deformation_net_graph_convolutional_res import DeformationNetworkGraphConvolutionalRes
+from deformation.deformation_net_graph_convolutional_full_res import DeformationNetworkGraphConvolutionalFullRes
+from deformation.deformation_net_graph_convolutional_full import DeformationNetworkGraphConvolutionalFull
+
+from utils import utils
 from utils.datasets import GenerationDataset, ShapenetRendersDataset, ShapenetPointsDataset
 from deformation.semantic_discriminator_net_renders import RendersSemanticDiscriminatorNetwork
 from deformation.semantic_discriminator_net_points import PointsSemanticDiscriminatorNetwork
@@ -117,14 +122,27 @@ class AdversarialDiscriminatorTrainer():
         if deform_net_type == "pointnet":
             deform_net = DeformationNetwork(self.cfg, self.cfg["semantic_dis_training"]["mesh_num_verts"], self.device)
             gen_lr = self.cfg["semantic_dis_training"]["gen_pointnet_lr"]
+        elif deform_net_type == "pointnet_mini":
+            deform_net = DeformationNetworkMinimal(self.cfg, self.cfg["semantic_dis_training"]["mesh_num_verts"], self.device)
+            gen_lr = self.cfg["semantic_dis_training"]["gen_pointnet_lr"]
         elif deform_net_type == "gcn":
             deform_net = DeformationNetworkGraphConvolutional(self.cfg, self.cfg["semantic_dis_training"]["mesh_num_verts"], self.device)
+            gen_lr = self.cfg["semantic_dis_training"]["gen_gcn_lr"]
+        elif deform_net_type == "gcn_full":
+            deform_net = DeformationNetworkGraphConvolutionalFull(self.cfg, self.cfg["semantic_dis_training"]["mesh_num_verts"], self.device)
             gen_lr = self.cfg["semantic_dis_training"]["gen_gcn_lr"]
         elif deform_net_type == "gcn_pn":
             deform_net = DeformationNetworkGraphConvolutionalPN(self.cfg, self.cfg["semantic_dis_training"]["mesh_num_verts"], self.device)
             gen_lr = self.cfg["semantic_dis_training"]["gen_gcn_lr"]
+        elif deform_net_type == "gcn_res":
+            deform_net = DeformationNetworkGraphConvolutionalRes(self.cfg, self.cfg["semantic_dis_training"]["mesh_num_verts"], self.device)
+            gen_lr = self.cfg["semantic_dis_training"]["gen_gcn_lr"]
+        elif deform_net_type == "gcn_full_res":
+            deform_net = DeformationNetworkGraphConvolutionalFullRes(self.cfg, self.cfg["semantic_dis_training"]["mesh_num_verts"], self.device)
+            gen_lr = self.cfg["semantic_dis_training"]["gen_gcn_lr"]
         else:
             raise ValueError("generator deform net type not recognized")
+
         if self.gen_weight_path != "":
             deform_net.load_state_dict(torch.load(self.gen_weight_path))
         deform_net.to(self.device)
