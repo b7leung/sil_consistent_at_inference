@@ -14,7 +14,7 @@ The postprocessing algorithm expects segmented rgba 224x224 .png images, and .ob
 * get meshlab 2016.12 on windows
 https://github.com/cnr-isti-vclab/meshlab/releases?after=e50c7fc
 * use cvt_off_obj.py inside the data_prep_tools dir
-### Decimating Meshes
+### Decimating Meshes (.objs only, .off meshes doesn't work)
 * get meshlab 2016.12 on windows
 https://github.com/cnr-isti-vclab/meshlab/releases?after=e50c7fc
 * install meshlabxml on windows python using pip
