@@ -93,7 +93,6 @@ class MeshRefiner():
         semantic_dis_net = self.setup_discriminator()
         deform_net = self.setup_generator()
         optimizer = optim.Adam(deform_net.parameters(), lr=self.lr)
-        #optimizer = optim.Adam(deform_net.parameters(), lr=self.lr, weight_decay=0.1)
 
         # optimizing  
         loss_info = pd.DataFrame()

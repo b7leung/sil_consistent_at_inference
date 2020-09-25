@@ -2,6 +2,10 @@ import os
 import sys
 import yaml
 import io
+import glob
+import pprint
+import pickle
+import random
 
 import torch
 from PIL import Image
@@ -13,11 +17,10 @@ from scipy import ndimage
 from skimage.transform import resize
 from skimage import img_as_bool
 from tqdm import tqdm
-import glob
-import pprint
-import pickle
+
 
 # Util function for loading meshes
+import pytorch3d
 from pytorch3d.io import load_objs_as_meshes
 from pytorch3d.io import load_obj
 

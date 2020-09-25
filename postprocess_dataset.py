@@ -3,12 +3,14 @@ import os
 import glob
 import pprint
 import pickle
+import shutil
 
 from tqdm.autonotebook import tqdm
 import torch
 from PIL import Image
 import numpy as np
 from pytorch3d.io import save_obj
+import pytorch3d
 
 from utils import utils
 from mesh_refiner import MeshRefiner
@@ -35,6 +37,20 @@ def predict_pose(cfg, device, meshes_to_process):
             cached_pred_poses[instance_name] = {"azim": pred_azim.item(), "elev": pred_elev.item(), "dist": pred_dist.item()}
 
     return cached_pred_poses
+
+
+def adjust_vertices(mesh, adjusted_vertex_num):
+    mesh_vertices = mesh.verts_padded()
+    vertex_num = mesh_vertices.shape[1]
+
+    if vertex_num > adjusted_vertex_num:
+        mesh_vertices = mesh_vertices[:,(vertex_num-adjusted_vertex_num):,:]
+    
+    elif vertex_num < adjusted_vertex_num:
+        while mesh_vertices.shape[1] < adjusted_vertex_num:
+            mesh_vertices = torch.cat([mesh_vertices, mesh_vertices[:,0,:].unsqueeze(0)], axis=1)
+
+    return pytorch3d.structures.Meshes(verts=mesh_vertices, faces=mesh.faces_padded())
 
 
 # postprocesses imgs/meshes based on a dict of cached predicted poses (the output of predict_pose)
@@ -96,9 +112,10 @@ if __name__ == "__main__":
 
     # making processed meshes output dir
     if input_dir_mesh[-1] == '/': input_dir_mesh = input_dir_mesh[:-1]
-    output_dir_mesh = os.path.join("data", input_dir_mesh.split('/')[-1]+"_"+args.name, "batch_{}_of_{}".format(args.batch_i, args.num_batches))
+    output_dir_mesh = os.path.join(input_dir_mesh+"_"+args.name, "batch_{}_of_{}".format(args.batch_i, args.num_batches))
     if not os.path.exists(output_dir_mesh):
         os.makedirs(output_dir_mesh)
+    shutil.copyfile(args.cfg_path, os.path.join(output_dir_mesh, args.cfg_path.split("/")[-1]))
 
     # finding which instances are in this batch
     instance_names = []

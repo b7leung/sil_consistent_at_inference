@@ -1,24 +1,23 @@
 dataset:
-  input_dir_mesh: "data/test_dataset" # Path to folder with meshes to postprocess.
-  input_dir_img: "data/test_dataset" # Path to folder with images for meshes.
+  input_dir_mesh: "data/misc/testing/test_dataset" # Path to folder with meshes to postprocess.
+  input_dir_img: "data/misc/testing/test_dataset" # Path to folder with images for meshes.
 
 
 # parameters for test-time optimization
 refinement:
-  num_iterations: 4000
-  learning_rate: 0.001 #[0.00001*]
-  #learning_rate: 0.0008 #[0.00001*]
+  num_iterations: 400 #1250
+  learning_rate: 0.0001 #[0.00001*]
 
 
 # loss function parameters
 training:
-  semantic_dis_lam: 0 # semantic discriminator loss weight
+  semantic_dis_lam: 10 # semantic discriminator loss weight
 
   img_sym_num_azim: 1 #[1*]
-  img_sym_lam: 25 # 100 # image-based symmetry loss [100*]
+  img_sym_lam: 75 # image-based symmetry loss [75*]
 
-  sil_lam: 10 #10 # silouette loss. [5*]
-  vertex_sym_lam: 0.0 # vertex-based symmetry loss [0.1*]
+  sil_lam: 10 # silouette loss. [10*]
+  vertex_sym_lam: 0.0 # vertex-based symmetry loss [0.0*]
 
   l2_lam: 0 # l2 loss on delta v  [1*]
   lap_smoothness_lam: 10  # laplacian smoothing loss [10*]
@@ -27,12 +26,27 @@ training:
 
 # parameters for the generator and discriminator
 semantic_dis_training:
-  dis_weight_path: ""
-  #dis_weight_path: "out/2020_09_14--22_52_24_job4/semantic_dis_net_weights_90.pt"
-  gen_weight_path: ""
+  #dis_weight_path: "out/exp_set_3/2020_09_14--22_52_24_job4/semantic_dis_net_weights_90.pt" 
+  #dis_weight_path: "out/exp_set_3/2020_09_15--22_52_04_job9/semantic_dis_net_weights_85.pt" # ***** gcn
+  #dis_weight_path: "out/2020_09_21--07_07_11_job1/semantic_dis_net_weights_99.pt"
+  #dis_weight_path: "out/2020_09_21--07_10_03_job2/semantic_dis_net_weights_99.pt"
+  #dis_weight_path: "out/2020_09_21--07_10_11_job3/semantic_dis_net_weights_99.pt"
+  #dis_weight_path: "out/2020_09_21--07_17_31_job4/semantic_dis_net_weights_99.pt"
+  dis_weight_path: "out/2020_09_21--07_10_21_job5/semantic_dis_net_weights_99.pt" # ***** gcn_full
+  #dis_weight_path: "out/2020_09_21--07_10_05_job6/semantic_dis_net_weights_90.pt"
+  #dis_weight_path: "out/2020_09_21--07_10_11_job7/semantic_dis_net_weights_99.pt"
+  #dis_weight_path: "out/2020_09_21--07_26_45_job8/semantic_dis_net_weights_70.pt"
+
+  #gen_weight_path: ""
+  #gen_weight_path: "out/exp_set_3/2020_09_14--22_52_24_job4/deform_net_weights_90.pt" #old
+  #gen_weight_path: "out/exp_set_3/2020_09_15--22_52_04_job9/deform_net_weights_85.pt" # ***** gcn
+  #gen_weight_path: "out/2020_09_21--07_07_11_job1/deform_net_weights_99.pt"
+  #gen_weight_path: "out/2020_09_21--07_10_03_job2/deform_net_weights_99.pt"
+  #gen_weight_path: "out/2020_09_21--07_17_31_job4/deform_net_weights_99.pt"
+  gen_weight_path: "out/2020_09_21--07_10_21_job5/deform_net_weights_99.pt" # ***** gcn_full
 
   # generator options
-  deform_net_type: "gcn" # {pointnet, gcn, gcn_full, gcn_pn}
+  deform_net_type: "gcn_full" # {pointnet, gcn, gcn_full, gcn_pn}
   
   # discriminator options 
   dis_type: "points" # type of discriminator input, in {renders, points, mesh}

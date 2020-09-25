@@ -25,7 +25,7 @@ class DeformationNetworkGraphConvolutional(nn.Module):
         self.gconvs.append(pytorch3d.ops.GraphConv(input_dim=hidden_dim, output_dim=hidden_dim))
         self.gconvs.append(pytorch3d.ops.GraphConv(input_dim=hidden_dim, output_dim=hidden_dim))
 
-        self.vert_offset = nn.Sequential(
+        #self.vert_offset = nn.Sequential(
             #nn.Linear(hidden_dim, hidden_dim),
             #nn.ReLU(),
             #nn.Linear(hidden_dim, hidden_dim),
@@ -34,7 +34,8 @@ class DeformationNetworkGraphConvolutional(nn.Module):
             #nn.ReLU(),
             #nn.Linear(hidden_dim, hidden_dim),
             #nn.ReLU(),
-            nn.Linear(hidden_dim, 3))
+        #    nn.Linear(hidden_dim, 3))
+        self.vert_offset = nn.Linear(hidden_dim, 3)
 
     
     def forward(self, input_batch):

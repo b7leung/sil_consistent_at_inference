@@ -1,3 +1,5 @@
+import random
+
 import torch
 import torch.nn as nn
 
@@ -11,7 +13,7 @@ class PointsSemanticDiscriminatorNetwork(nn.Module):
         super().__init__()
 
         self.dis_points_encoder = cfg["semantic_dis_training"]["dis_points_encoder"]
-        num_vertices = cfg["semantic_dis_training"]["mesh_num_verts"]
+        self.num_vertices = cfg["semantic_dis_training"]["mesh_num_verts"]
 
         if self.dis_points_encoder in ["pointnet", "fc"]:
             dropout_p = cfg["semantic_dis_training"]["dropout_p"]
@@ -24,7 +26,7 @@ class PointsSemanticDiscriminatorNetwork(nn.Module):
             else:
                 self.points_encoder = nn.Sequential(
                     nn.Flatten(),
-                    nn.Linear(num_vertices*3, 1024),
+                    nn.Linear(self.num_vertices*3, 1024),
                     nn.BatchNorm1d(1024),
                     nn.ReLU(),
                     nn.Dropout(p=dropout_p),
@@ -80,7 +82,7 @@ class PointsSemanticDiscriminatorNetwork(nn.Module):
             for i in range(layer_num):
                 rgan_net_list.append(fc_layers[i])
                 rgan_net_list.append(leaky_relu)
-            rgan_net_list.append(nn.MaxPool1d(num_vertices))
+            rgan_net_list.append(nn.MaxPool1d(self.num_vertices))
             rgan_net_list.append(nn.Flatten())
             rgan_net_list.append(final_layer)
 
@@ -89,9 +91,29 @@ class PointsSemanticDiscriminatorNetwork(nn.Module):
         else:
             raise ValueError("dis_points_encoder not recognized")
         
+    
+    # assumes vertices is batch size 1
+    # ensures vertices is >= target_vertex_num
+    def adjust_num_vertices(self, vertices, target_vertex_num, seed=0):
+        # TODO: seed?. Also this can be done in one swoop, w/o while loop
+        # TODO: add warnings if num vertex is way off
+
+        # if mesh has too few vertices, duplicate random mesh vertices (they are "floating", no edges are added) 
+        # until target number of vertices is reached
+        while vertices.shape[1] < target_vertex_num:
+            random_vertex_idx = random.randint(0,vertices.shape[1]-1)
+            vertices = torch.cat([vertices, vertices[:,random_vertex_idx,:].unsqueeze(0)], axis=1)
+
+        return vertices
+
 
     # mesh_vertices (tensor): a batch_size x num_vertices x 3 tensor of vertices (ie, a pointcloud)
     def forward(self, mesh_vertices):
+        # Note: vertices should not need to be adjusted during batched adversarial training, only single instance test-time optimization.
+        if mesh_vertices.shape[0] > 1 and mesh_vertices.shape[1] != self.num_vertices:
+            raise ValueError("Vertices should not need to be adjusted during batched adversarial training.")
+        mesh_vertices = self.adjust_num_vertices(mesh_vertices, self.num_vertices)
+
         # TODO: make this more elegant
         if self.dis_points_encoder == "rgan":
             mesh_vertices = torch.transpose(mesh_vertices, 1, 2)
