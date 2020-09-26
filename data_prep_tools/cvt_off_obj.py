@@ -4,12 +4,14 @@ import os
 import argparse
 import platform
 from tqdm import tqdm
+from pathlib import Path
 
 parser = argparse.ArgumentParser(
     description='Convert a folder of .off to .obj meshes.'
 )
 parser.add_argument('meshes_dir', type=str, help='Path folder with meshes')
-parser.add_argument('--remove_old', action='store_true', help='Keep the original off files.')
+parser.add_argument('--keep_old', action='store_true', help='Keep the original off files.')
+parser.add_argument('--reconvert', action='store_true', help='reconvert off files, even if a obj already exists')
 args = parser.parse_args()
 
 # add meshlabserver to path
@@ -24,12 +26,14 @@ else:
     raise OSError()
 os.environ['PATH'] = meshlabserver_path + os.pathsep + os.environ['PATH']
 
-f = glob.glob(os.path.join(args.meshes_dir, "*.off"))
+#f = glob.glob(os.path.join(args.meshes_dir, "*.off"))
+f = [str(path) for path in list(Path(args.meshes_dir).rglob('*.off'))]
+#already_converted = [str(path) for path in list(Path(args.meshes_dir).rglob('*.obj'))]
 
 for off_file in tqdm(f):
     print(off_file)
     #"meshlabserver -i 01_mesh.off -o 01_mesh.obj"
     subprocess.run(["meshlabserver", "-i", off_file, "-o", off_file.replace("off","obj")], check=True)
 
-    if args.remove_old:
+    if not args.keep_old:
         os.remove(off_file)
