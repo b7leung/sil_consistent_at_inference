@@ -7,11 +7,6 @@ dataset:
   input_dir_img: "data/img_shapenet_chair" # Path to folder with images for meshes.
 
 
-# parameters for test-time optimization
-refinement:
-  num_iterations: 400
-  learning_rate: 0.0001
-
 
 # loss function parameters
 training:
@@ -41,10 +36,6 @@ semantic_dis_training:
 
   # for dis_type = points
   dis_points_encoder: "rgan" # in {pointnet, fc, rgan}
-
-  # for dis_type = renders
-  sil_dis_input: true # whether to discirminate between rendered images, or rendered silhouette.
-  dis_input_size: 64 # {64, 128, 256} # size of input image of discriminator. Note that this will increase the gpu memory substantially, so may need to lower semantic_dis_num_render
 
 
 

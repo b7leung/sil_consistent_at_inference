@@ -27,7 +27,7 @@ def predict_pose(cfg, device, meshes_to_process):
 
     cached_pred_poses = {}
     tqdm_out = utils.TqdmPrintEvery()
-    for instance_name in tqdm(meshes_to_process, file=tqdm_out):
+    for instance_name in tqdm(meshes_to_process, file=tqdm_out, desc="Predicting Poses"):
         img_path = os.path.join(input_dir_img, instance_name + ".png")
         mesh_path = os.path.join(input_dir_mesh, instance_name + ".obj")
         mask = np.asarray(Image.open(img_path))[:,:,3] > 0

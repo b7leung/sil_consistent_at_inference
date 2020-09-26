@@ -93,20 +93,33 @@ def compute_chamfer_L1(rec_mesh, rec_mesh_torch, gt_mesh, gt_mesh_torch, sample_
 
 
 # takes in 3 dicts, each keyed by instance name.
-def evaluate(input_img_dict, reconstructions_dict, gt_shapes_dict, results_output_path, device):
-
-    evaluations_df = pd.DataFrame()
+def evaluate(input_img_dict, reconstructions_dict, gt_shapes_dict, results_output_path, device, evaluations_df=None):
+    if evaluations_df is None:
+        evaluations_df = pd.DataFrame()
     tqdm_out = TqdmPrintEvery()
     for instance in tqdm(reconstructions_dict, file=tqdm_out):
-        input_img_path = input_img_dict[instance]
-        input_img = Image.open(input_img_path)
+        print(instance)
 
         rec_obj_path = reconstructions_dict[instance]
-        rec_mesh = trimesh.load(rec_obj_path)
+        input_img_path = input_img_dict[instance]
+        gt_obj_path = gt_shapes_dict[instance]
+
+        try:
+            rec_mesh = trimesh.load(rec_obj_path)
+        except IndexError:
+            # IndexError is thrown by trimesh if meshes have nan vertices
+            print("WARNING: instance {} had NaN nodes.".format(instance))
+            instance_record = {"instance": instance, "2d_iou":-1, "3d_iou": -1, "chamfer_L1": -1,
+                               "input_img_path": input_img_path, "rec_obj_path": rec_obj_path, "gt_obj_path": gt_obj_path}
+            evaluations_df = evaluations_df.append(instance_record, ignore_index=True)
+            evaluations_df.to_pickle(results_output_path)
+            continue
+
+
+        input_img = Image.open(input_img_path)
         with torch.no_grad():
             rec_mesh_torch = utils.load_untextured_mesh(rec_obj_path, device)
 
-        gt_obj_path = gt_shapes_dict[instance]
         gt_mesh = trimesh.load(gt_obj_path)
         with torch.no_grad():
             gt_mesh_torch = utils.load_untextured_mesh(gt_obj_path, device)
@@ -120,7 +133,6 @@ def evaluate(input_img_dict, reconstructions_dict, gt_shapes_dict, results_outpu
         chamfer_L1 = compute_chamfer_L1(rec_mesh, rec_mesh_torch, gt_mesh, gt_mesh_torch)
         instance_record = {"instance": instance, "2d_iou":iou_2d, "3d_iou": iou_3d, "chamfer_L1": chamfer_L1,
                            "input_img_path": input_img_path, "rec_obj_path": rec_obj_path, "gt_obj_path": gt_obj_path}
-        print(instance_record)
         evaluations_df = evaluations_df.append(instance_record, ignore_index=True)
         evaluations_df.to_pickle(results_output_path)
 
@@ -151,6 +163,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Evaluates according to a configuration file')
     parser.add_argument('cfg_path', type=str, help='Path to yaml configuration file.')
     parser.add_argument('--gpu', type=int, default=0, help='Gpu number to use.')
+    parser.add_argument('--recompute', action='store_true', help='Recompute entries, even for ones which already exist.')
     args = parser.parse_args()
 
     # processing cfg file
@@ -167,4 +180,15 @@ if __name__ == "__main__":
     # TODO: seed doesn't seem to work properly
     np.random.seed(0)
     device = torch.device("cuda:"+str(args.gpu))
-    evaluate(input_img_dict, reconstructions_dict, gt_shapes_dict, args.cfg_path.replace(".yaml", "_eval_results.pkl"), device)
+    output_results_path = args.cfg_path.replace(".yaml", "_eval_results.pkl")
+
+    if not args.recompute:
+        previous_evaluations_df = pd.read_pickle(output_results_path)
+        previous_instances = list(previous_evaluations_df['instance'])
+        for instance in list(reconstructions_dict.keys()):
+            if instance in previous_instances:
+                del reconstructions_dict[instance]
+    else:
+        previous_evaluations_df = None
+
+    evaluate(input_img_dict, reconstructions_dict, gt_shapes_dict, output_results_path, device, evaluations_df=previous_evaluations_df)

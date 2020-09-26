@@ -76,10 +76,17 @@ def brute_force_estimate_pose(mesh, mask, num_azims, num_elevs, num_dists, devic
             rendered_image_fits.append(rgba_obj_in_frame(renders[i].cpu().numpy()))
         iou_argsort = np.argsort(iou_calcs)[::-1]
         rendered_image_fits = np.array(rendered_image_fits)[iou_argsort]
+
         # choose distance with highest iou, whose rendered image will fit completely in the frame
         i = 0
         while not rendered_image_fits[i]:
             i+=1
+            # if nothing fits, just return the highest IoU even though it doesn't fit
+            if i >= len(rendered_image_fits):
+                print("Couldn't find a pose which fits entirely")
+                i=0
+                break
+
         pred_dist = dists[iou_argsort[i]]
         iou = iou_calcs[iou_argsort[i]]
         render = renders[iou_argsort[i]]
@@ -88,10 +95,15 @@ def brute_force_estimate_pose(mesh, mask, num_azims, num_elevs, num_dists, devic
 
 
 def crop_binary_mask(mask):
-    # Get the height and width of bbox
-    objs = ndimage.find_objects(mask)
-    # upper left, lower right
-    img_bbox = [objs[0][0].start, objs[0][1].start, objs[0][0].stop, objs[0][1].stop]
+    try:
+        # Get the height and width of bbox
+        objs = ndimage.find_objects(mask)
+        # upper left, lower right
+        img_bbox = [objs[0][0].start, objs[0][1].start, objs[0][0].stop, objs[0][1].stop]
+    except IndexError:
+        # if no bounding box found, return None
+        print("no bbox found")
+        return None
     # crop
     cropped_mask = mask[img_bbox[0]:img_bbox[2],img_bbox[1]:img_bbox[3] ]
     return cropped_mask
@@ -111,10 +123,15 @@ def get_iou(img, mask):
 # given an 4 channel image (w1 x h1 x rgba), assumed to be an object on a white background and a mask (w2 x h2 x 1)
 # will crop the image and mask, resize them, and then compute the IoU
 # (mask is the gt mask, img is rendered reconstruction)
-def get_normalized_iou(img, mask, show_intermediate = False):
+def get_normalized_iou(img, mask, show_intermediate=False):
     img_mask = img[:,:,3] > 0
     img_mask_cropped = crop_binary_mask(img_mask)
     mask_cropped = crop_binary_mask(mask)
+
+    # if there was an issue with cropping (ie, no bounding box was found, just return IoU zero)
+    if (img_mask_cropped is None) or (mask_cropped is None):
+        return 0
+
     # resize the image to the mask's dimensions
     img_mask_resized = img_as_bool(resize(img_mask_cropped, mask_cropped.shape))
     
