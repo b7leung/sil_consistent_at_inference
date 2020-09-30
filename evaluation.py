@@ -44,13 +44,19 @@ def compute_iou_2d_given_pose(rec_mesh_torch, input_img, device, azim, elev, dis
     return iou
 
 
-def compute_iou_3d(rec_mesh, rec_mesh_torch, gt_mesh, gt_mesh_torch, num_sample_points=100000):
-    rec_points_uniform = sample_points(rec_mesh_torch.verts_packed(),int(num_sample_points/2))
-    gt_points_uniform = sample_points(gt_mesh_torch.verts_packed(), int(num_sample_points/2))
-    points_uniform = np.concatenate([rec_points_uniform, gt_points_uniform], axis=0)
-
-    rec_mesh.vertices = eval_utils.normalize_pointclouds_numpy(rec_mesh.vertices)
-    gt_mesh.vertices = eval_utils.normalize_pointclouds_numpy(gt_mesh.vertices)
+def compute_iou_3d(rec_mesh_input, rec_mesh_torch, gt_mesh_input, gt_mesh_torch, num_sample_points=100000, full_unit_normalize=False):
+    rec_mesh = rec_mesh_input.copy()
+    gt_mesh = gt_mesh_input.copy()
+    if full_unit_normalize:
+        points_uniform = np.random.uniform(low=-1,high=1,size=(num_sample_points,3))
+        rec_mesh.vertices = eval_utils.normalize_pointclouds_numpy_all_axes(rec_mesh.vertices)
+        gt_mesh.vertices = eval_utils.normalize_pointclouds_numpy_all_axes(gt_mesh.vertices)
+    else:
+        rec_points_uniform = sample_points(rec_mesh_torch.verts_packed(),int(num_sample_points/2))
+        gt_points_uniform = sample_points(gt_mesh_torch.verts_packed(), int(num_sample_points/2))
+        points_uniform = np.concatenate([rec_points_uniform, gt_points_uniform], axis=0)
+        rec_mesh.vertices = eval_utils.normalize_pointclouds_numpy(rec_mesh.vertices)
+        gt_mesh.vertices = eval_utils.normalize_pointclouds_numpy(gt_mesh.vertices)
 
     rec_mesh_occupancies = inside_mesh.check_mesh_contains(rec_mesh, points_uniform)
     gt_mesh_occupancies = inside_mesh.check_mesh_contains(gt_mesh, points_uniform)
@@ -60,12 +66,18 @@ def compute_iou_3d(rec_mesh, rec_mesh_torch, gt_mesh, gt_mesh_torch, num_sample_
     return iou_3d
 
 
-def compute_chamfer_L1(rec_mesh, rec_mesh_torch, gt_mesh, gt_mesh_torch, sample_method="sample_surface", num_sample_points=100000):
+def compute_chamfer_L1(rec_mesh, rec_mesh_torch, gt_mesh, gt_mesh_torch, sample_method="sample_surface", num_sample_points=100000, full_unit_normalize=False):
     if sample_method == "sample_surface":
         rec_pointcloud = pytorch3d.ops.sample_points_from_meshes(rec_mesh_torch, num_samples=num_sample_points)[0]
-        rec_pointcloud_normalized = eval_utils.normalize_pointclouds(rec_pointcloud)
         gt_pointcloud = pytorch3d.ops.sample_points_from_meshes(gt_mesh_torch, num_samples=num_sample_points)[0]
-        gt_pointcloud_normalized = eval_utils.normalize_pointclouds(gt_pointcloud)
+        if full_unit_normalize:
+            rec_pointcloud_normalized = torch.tensor(eval_utils.normalize_pointclouds_numpy_all_axes(rec_pointcloud.cpu().numpy(), proxy_points=None))
+            #rec_pointcloud_normalized = torch.tensor(eval_utils.normalize_pointclouds_numpy_all_axes(rec_pointcloud.cpu().numpy(), proxy_points=rec_mesh.vertices))
+            gt_pointcloud_normalized = torch.tensor(eval_utils.normalize_pointclouds_numpy_all_axes(gt_pointcloud.cpu().numpy(), proxy_points=None))
+            #gt_pointcloud_normalized = torch.tensor(eval_utils.normalize_pointclouds_numpy_all_axes(gt_pointcloud.cpu().numpy(), proxy_points=gt_mesh.vertices))
+        else:
+            rec_pointcloud_normalized = eval_utils.normalize_pointclouds(rec_pointcloud)
+            gt_pointcloud_normalized = eval_utils.normalize_pointclouds(gt_pointcloud)
 
     elif sample_method == "sample_uniformly":
         rec_points_uniform = sample_points(rec_mesh_torch.verts_packed(),int(num_sample_points/2))
@@ -84,37 +96,38 @@ def compute_chamfer_L1(rec_mesh, rec_mesh_torch, gt_mesh, gt_mesh_torch, sample_
     
     else:
         raise ValueError("method not recognized")
+    
+    #chamfer_dist = pytorch3d.loss.chamfer_distance(rec_pointcloud_normalized.unsqueeze(0), gt_pointcloud_normalized.unsqueeze(0))
+    chamfer_dist = eval_utils.chamfer_distance_kdtree(rec_pointcloud_normalized.unsqueeze(0), gt_pointcloud_normalized.unsqueeze(0))
 
-    chamfer_dist = pytorch3d.loss.chamfer_distance(rec_pointcloud_normalized.unsqueeze(0), gt_pointcloud_normalized.unsqueeze(0))
     chamfer_dist = chamfer_dist[0].item()
-    #chamfer_dist = eval_utils.chamfer_distance_kdtree(rec_pointcloud_normalized.unsqueeze(0), gt_pointcloud_normalized.unsqueeze(0))
-
     return chamfer_dist
 
 
 # takes in 3 dicts, each keyed by instance name.
-def evaluate(input_img_dict, reconstructions_dict, gt_shapes_dict, results_output_path, device, evaluations_df=None):
+def evaluate(input_img_dict, reconstructions_dict, gt_shapes_dict, results_output_path, metrics_to_eval, device, evaluations_df=None):
+
     if evaluations_df is None:
         evaluations_df = pd.DataFrame()
-    tqdm_out = TqdmPrintEvery()
-    for instance in tqdm(reconstructions_dict, file=tqdm_out):
+
+    # TODO: can this loop be parallelized?
+    for instance in tqdm(reconstructions_dict, file=utils.TqdmPrintEvery()):
         print(instance)
 
         rec_obj_path = reconstructions_dict[instance]
         input_img_path = input_img_dict[instance]
         gt_obj_path = gt_shapes_dict[instance]
+        instance_record = {**{metric:-1 for metric in metrics_to_eval},
+                           **{"instance": instance, "input_img_path": input_img_path, "rec_obj_path": rec_obj_path, "gt_obj_path": gt_obj_path}}
 
+        # IndexError is thrown by trimesh if meshes have nan vertices
         try:
             rec_mesh = trimesh.load(rec_obj_path)
         except IndexError:
-            # IndexError is thrown by trimesh if meshes have nan vertices
             print("WARNING: instance {} had NaN nodes.".format(instance))
-            instance_record = {"instance": instance, "2d_iou":-1, "3d_iou": -1, "chamfer_L1": -1,
-                               "input_img_path": input_img_path, "rec_obj_path": rec_obj_path, "gt_obj_path": gt_obj_path}
             evaluations_df = evaluations_df.append(instance_record, ignore_index=True)
             evaluations_df.to_pickle(results_output_path)
             continue
-
 
         input_img = Image.open(input_img_path)
         with torch.no_grad():
@@ -128,43 +141,39 @@ def evaluate(input_img_dict, reconstructions_dict, gt_shapes_dict, results_outpu
         #print(rec_mesh.is_watertight)
         #print(gt_mesh.is_watertight)
 
-        iou_2d = compute_iou_2d(rec_mesh_torch, input_img, device)
-        iou_3d = compute_iou_3d(rec_mesh, rec_mesh_torch, gt_mesh, gt_mesh_torch)
-        chamfer_L1 = compute_chamfer_L1(rec_mesh, rec_mesh_torch, gt_mesh, gt_mesh_torch)
-        instance_record = {"instance": instance, "2d_iou":iou_2d, "3d_iou": iou_3d, "chamfer_L1": chamfer_L1,
-                           "input_img_path": input_img_path, "rec_obj_path": rec_obj_path, "gt_obj_path": gt_obj_path}
+        if "2d_iou" in metrics_to_eval:
+            instance_record["2d_iou"] = compute_iou_2d(rec_mesh_torch, input_img, device)
+        if "3d_iou" in metrics_to_eval:
+            instance_record["3d_iou"] = compute_iou_3d(rec_mesh, rec_mesh_torch, gt_mesh, gt_mesh_torch)
+        if "3d_iou_norm" in metrics_to_eval:
+            instance_record["3d_iou_norm"] = compute_iou_3d(rec_mesh, rec_mesh_torch, gt_mesh, gt_mesh_torch, full_unit_normalize=True)
+        if "chamfer_L1" in metrics_to_eval:
+            instance_record["chamfer_L1"] = compute_chamfer_L1(rec_mesh, rec_mesh_torch, gt_mesh, gt_mesh_torch)
+        if "chamfer_L1_norm":
+            instance_record["chamfer_L1_norm"] = compute_chamfer_L1(rec_mesh, rec_mesh_torch, gt_mesh, gt_mesh_torch, full_unit_normalize=True)
+
         evaluations_df = evaluations_df.append(instance_record, ignore_index=True)
         evaluations_df.to_pickle(results_output_path)
-
-    print(evaluations_df)
-    print("\n------------------------------------------\n")
-    print("Averaged Results:")
-    evaluations_df_mean = evaluations_df.mean()
-    for metric_name in ["2d_iou", "3d_iou", "chamfer_L1"]:
-        print("avg {}: {}".format(metric_name, evaluations_df_mean[metric_name]))
     
-
-class TqdmPrintEvery(io.StringIO):
-    # Output stream for TQDM which will output to stdout. Used for nautilus jobs.
-    def __init__(self):
-        super(TqdmPrintEvery, self).__init__()
-        self.buf = None
-    def write(self,buf):
-        self.buf = buf
-    def flush(self):
-        print(self.buf)
-
 
 # images need to be transparent (masked) .pngs
 # meshes need to be watertight .objs (also in a unit box? )
 # assumes gt meshes and reconstructions meshes are aligned and normalized 
 # (i.e. no further alignment/processing is done before calculating performancemetrics)
 if __name__ == "__main__":
+    all_metrics_list = ["2d_iou", "3d_iou", "3d_iou_norm", "chamfer_L1", "chamfer_L1_norm"]
+
     parser = argparse.ArgumentParser(description='Evaluates according to a configuration file')
     parser.add_argument('cfg_path', type=str, help='Path to yaml configuration file.')
     parser.add_argument('--gpu', type=int, default=0, help='Gpu number to use.')
+    parser.add_argument('--metrics', nargs='+', default=all_metrics_list, help='Gpu number to use.')
     parser.add_argument('--recompute', action='store_true', help='Recompute entries, even for ones which already exist.')
     args = parser.parse_args()
+
+    for metric in args.metrics:
+        if metric not in all_metrics_list:
+            raise ValueError("Metric {} is unknown.".format(metric))
+    print("Metrics to evaluate: {}".format(args.metrics))
 
     # processing cfg file
     cfg = utils.load_config(args.cfg_path)
@@ -181,8 +190,7 @@ if __name__ == "__main__":
     np.random.seed(0)
     device = torch.device("cuda:"+str(args.gpu))
     output_results_path = args.cfg_path.replace(".yaml", "_eval_results.pkl")
-
-    if not args.recompute:
+    if not args.recompute and os.path.exists(output_results_path):
         previous_evaluations_df = pd.read_pickle(output_results_path)
         previous_instances = list(previous_evaluations_df['instance'])
         for instance in list(reconstructions_dict.keys()):
@@ -190,5 +198,6 @@ if __name__ == "__main__":
                 del reconstructions_dict[instance]
     else:
         previous_evaluations_df = None
+    
 
-    evaluate(input_img_dict, reconstructions_dict, gt_shapes_dict, output_results_path, device, evaluations_df=previous_evaluations_df)
+    evaluate(input_img_dict, reconstructions_dict, gt_shapes_dict, output_results_path, args.metrics, device, evaluations_df=previous_evaluations_df)

@@ -6,6 +6,7 @@ __pycache__/
 stderr_test.py
 out/
 data_prep_tools/ManifoldPlus/
+data_prep_tools/pose_est_compare/
 .vscode
 caches/
 data_evaluation/

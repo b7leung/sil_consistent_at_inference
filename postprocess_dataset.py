@@ -33,7 +33,7 @@ def predict_pose(cfg, device, meshes_to_process):
         mask = np.asarray(Image.open(img_path))[:,:,3] > 0
         with torch.no_grad():
             mesh = utils.load_untextured_mesh(mesh_path, device)
-            pred_azim, pred_elev, pred_dist, renders, iou = brute_force_estimate_pose(mesh, mask, num_azims, num_elevs, num_dists, device, 8)
+            pred_azim, pred_elev, pred_dist, render, iou = brute_force_estimate_pose(mesh, mask, num_azims, num_elevs, num_dists, device, 8)
             cached_pred_poses[instance_name] = {"azim": pred_azim.item(), "elev": pred_elev.item(), "dist": pred_dist.item()}
 
     return cached_pred_poses

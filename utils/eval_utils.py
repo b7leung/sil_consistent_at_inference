@@ -19,6 +19,59 @@ def normalize_pointclouds(points):
 
 
 # points: a tensor of 3d points
+def normalize_pointclouds_numpy_all_axes_slow(points):
+    # TODO: This assumes the pointcloud is centered on the origin and there are pos and neg points on for every axis
+    # not sure if this will always hold; may need to center pointcloud first
+    normalized_points = np.copy(points)
+    max_vert_values = np.amax(points, axis=0)
+    min_vert_values = np.amin(points, axis=0)
+    for i in range(normalized_points.shape[0]):
+
+        x = normalized_points[i][0]
+        if x > 0:
+            x = x / max_vert_values[0]
+        else:
+            x = x / abs(min_vert_values[0])
+
+        y = normalized_points[i][1]
+        if y > 0:
+            y = y / max_vert_values[1]
+        else:
+            y = y / abs(min_vert_values[1])
+
+        z = normalized_points[i][2]
+        if z > 0:
+            z = z / max_vert_values[2]
+        else:
+            z = z / abs(min_vert_values[2])
+
+        normalized_points[i] = np.array([x,y,z])
+
+    return normalized_points
+
+
+# points: a tensor of 3d points
+# Proxy_points is a alternative, smaller pointcloud used to find the max/min of the points in order to normalize
+# it is optional, but useful if there are many points, to avoid a O(n) search to find the min/max
+def normalize_pointclouds_numpy_all_axes(points_to_normalize, proxy_points=None):
+    # TODO: This assumes the pointcloud is centered on the origin and there are pos and neg points on for every axis
+    # not sure if this will always hold; may need to center pointcloud first
+    normalized_points = points_to_normalize
+    if proxy_points is None:
+        max_vert_values = np.amax(normalized_points, axis=0)
+        min_vert_values = np.amin(normalized_points, axis=0)
+    else:
+        max_vert_values = np.amax(proxy_points, axis=0)
+        min_vert_values = np.amin(proxy_points, axis=0)
+
+    for i in range(3):
+        normalized_points[:,i][normalized_points[:,i] > 0] = normalized_points[:,i][normalized_points[:,i] > 0]/max_vert_values[i]
+        normalized_points[:,i][normalized_points[:,i] < 0] = normalized_points[:,i][normalized_points[:,i] < 0]/abs(min_vert_values[i])
+
+    return normalized_points
+
+
+# points: a tensor of 3d points
 def normalize_pointclouds_numpy(points):
     max_vert_values = np.amax(points, axis=0)
     min_vert_values = np.amin(points, axis=0)
