@@ -54,23 +54,31 @@ def adjust_vertices(mesh, adjusted_vertex_num):
 
 
 # postprocesses imgs/meshes based on a dict of cached predicted poses (the output of predict_pose)
-def postprocess_data(cached_pred_poses, output_dir_mesh, cfg, device, recompute_meshes):
+def postprocess_data(pred_poses_dict, output_dir_mesh, cfg, device, recompute_meshes):
     input_dir_img = cfg['dataset']['input_dir_img']
     input_dir_mesh = cfg['dataset']['input_dir_mesh']
+    error_log_path = os.path.join(output_dir_mesh, "..", "error_log.txt")
 
     # postprocessing each mesh/img in dataset
     refiner = MeshRefiner(cfg, device)
     loss_info = {}
     tqdm_out = utils.TqdmPrintEvery()
-    for instance_name in tqdm(cached_pred_poses, file=tqdm_out):
+    for instance_name in tqdm(pred_poses_dict, file=tqdm_out):
         curr_obj_path = os.path.join(output_dir_mesh, instance_name+".obj")
         if recompute_meshes or not os.path.exists(curr_obj_path):
             input_image = np.asarray(Image.open(os.path.join(input_dir_img, instance_name+".png")))
             with torch.no_grad():
                 mesh = utils.load_untextured_mesh(os.path.join(input_dir_mesh, instance_name+".obj"), device)
-            pred_dist = cached_pred_poses[instance_name]['dist']
-            pred_elev = cached_pred_poses[instance_name]['elev']
-            pred_azim = cached_pred_poses[instance_name]['azim']
+                
+            # this catches an error in occnet reconstructions where the output has no vertices
+            if mesh.verts_packed().shape[0] == 0:
+                with open(error_log_path, "a") as f: 
+                    f.write("skipped refinement, no vertices -- {}\n".format(os.path.join(input_dir_mesh, instance_name+".obj")))
+                    continue
+
+            pred_dist = pred_poses_dict[instance_name]['dist']
+            pred_elev = pred_poses_dict[instance_name]['elev']
+            pred_azim = pred_poses_dict[instance_name]['azim']
 
             curr_refined_mesh, curr_loss_info = refiner.refine_mesh(mesh, input_image, pred_dist, pred_elev, pred_azim)
             save_obj(curr_obj_path, curr_refined_mesh.verts_packed(), curr_refined_mesh.faces_packed())
@@ -98,6 +106,7 @@ if __name__ == "__main__":
     parser.add_argument('--num_batches', type=int, default=1, help='number of batches to split dataset into')
     parser.add_argument('--gpu', type=int, default=0, help='Gpu number to use.')
     parser.add_argument('--name', type=str, default="processed", help='name of experiment')
+    parser.add_argument('--use_gt_poses', action='store_true', help='Perform refinements with the ground truth pose, located in the image dir.')
     parser.add_argument('--recompute_poses', action='store_true', help='Recompute the poses, even if there is a precomputed pose cache.')
     parser.add_argument('--recompute_meshes', action='store_true', help='Recompute the meshes, even for ones which already exist.')
     args = parser.parse_args()
@@ -112,10 +121,11 @@ if __name__ == "__main__":
 
     # making processed meshes output dir
     if input_dir_mesh[-1] == '/': input_dir_mesh = input_dir_mesh[:-1]
-    output_dir_mesh = os.path.join(input_dir_mesh+"_"+args.name, "batch_{}_of_{}".format(args.batch_i, args.num_batches))
+    entire_output_dir_mesh = os.path.join("data", args.name)
+    output_dir_mesh = os.path.join(entire_output_dir_mesh, "batch_{}_of_{}".format(args.batch_i, args.num_batches))
     if not os.path.exists(output_dir_mesh):
         os.makedirs(output_dir_mesh)
-    shutil.copyfile(args.cfg_path, os.path.join(output_dir_mesh, args.cfg_path.split("/")[-1]))
+    shutil.copyfile(args.cfg_path, os.path.join(entire_output_dir_mesh, args.cfg_path.split("/")[-1]))
 
     # finding which instances are in this batch
     instance_names = []
@@ -128,16 +138,21 @@ if __name__ == "__main__":
     curr_batch_instances = split(instance_names, args.num_batches)[args.batch_i-1]
 
     # precomputing poses for this batch if necessary
-    pred_poses_path = os.path.join(output_dir_mesh, "pred_poses.p")
-    if args.recompute_poses or not os.path.exists(pred_poses_path):
-        print("\nPredicting Poses...\n")
-        cached_pred_poses = predict_pose(cfg, device, curr_batch_instances)
-        pickle.dump(cached_pred_poses, open(pred_poses_path,"wb"))
+    if args.use_gt_poses:
+        pred_poses_dict = pickle.load(open(os.path.join(input_dir_img, "renders_camera_params.pt"), "rb"))
+        pred_poses_dict = {instance:pred_poses_dict[instance] for instance in pred_poses_dict if instance in curr_batch_instances}
     else:
-        cached_pred_poses = pickle.load(open(pred_poses_path, "rb"))
+        pred_poses_path = os.path.join(output_dir_mesh, "pred_poses.p")
+        if args.recompute_poses or not os.path.exists(pred_poses_path):
+            print("\nPredicting Poses...\n")
+            pred_poses_dict = predict_pose(cfg, device, curr_batch_instances)
+            pickle.dump(pred_poses_dict, open(pred_poses_path,"wb"))
+        else:
+            pred_poses_dict = pickle.load(open(pred_poses_path, "rb"))
 
     # postprocessing meshes
     print("\nPerforming optimization-based postprocessing on mesh reconstructions...\n")
-    loss_info = postprocess_data(cached_pred_poses, output_dir_mesh, cfg, device, args.recompute_meshes)
+    # TODO: loss info is not preserved if loaded twice
+    loss_info = postprocess_data(pred_poses_dict, output_dir_mesh, cfg, device, args.recompute_meshes)
     pickle.dump(loss_info, open(os.path.join(output_dir_mesh, "loss_info.p"), "wb"))
 

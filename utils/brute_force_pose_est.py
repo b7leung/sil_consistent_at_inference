@@ -37,29 +37,74 @@ from utils import utils
 # the additional requirement that the entire mesh should fit in the image after rendered at the estimated pose is also enforced 
 # (the distance chosen must satisfy this)
 # inputs:
-# - mesh: pytorch 3d mesh object
+# - mesh: pytorch 3d mesh object; assumed to be in the cpu
 # - mask: a boolean 2D array
 def brute_force_estimate_pose(mesh, mask, num_azims, num_elevs, num_dists, device, batch_size=8):
-    torch.cuda.set_device(device)
+    #torch.cuda.set_device(device)
     with torch.no_grad():
         # rendering at many different azimuth and elevation combinations on a sphere
         num_renders = num_elevs * num_azims
         azims = torch.linspace(0, 360, num_azims).repeat(num_elevs)
         elevs = torch.repeat_interleave(torch.linspace(0, 180, num_elevs), num_azims) # TODO: also add underneath elevs
         dists = torch.ones(num_renders) * 2.7
-        renders = utils.batched_render(mesh, azims, elevs, dists, batch_size, device)
+
         # computing iou of mask and azimuth/elevation renders
         iou_calcs = []
-        for i in range(renders.shape[0]):
-            iou = get_normalized_iou(renders[i].cpu().numpy(), mask, False)
-            iou_calcs.append(iou)
-            #print("azim: {}, elev: {}, iou: {}".format(azims[i], elevs[i], iou))
+        batched_renders_iterable = utils.BatchedRenderIterable(mesh, azims, elevs, dists, batch_size, device)
+        for render_batch in iter(batched_renders_iterable):
+            for render in render_batch:
+                iou = get_normalized_iou(render.cpu().numpy(), mask, False)
+                iou_calcs.append(iou)
+
+        #renders = utils.batched_render(mesh, azims, elevs, dists, batch_size, device)
+        #for i in range(renders.shape[0]):
+        #    iou = get_normalized_iou(renders[i].cpu().numpy(), mask, False)
+        #    iou_calcs.append(iou)
+        #    #print("azim: {}, elev: {}, iou: {}".format(azims[i], elevs[i], iou))
 
         # selecting render pose with highest iou to find predicted azimuth and elevation
         iou_argsort = np.argsort(iou_calcs)[::-1]
         iou_highest_idx = iou_argsort[0]
         pred_azim = azims[iou_highest_idx]
         pred_elev = elevs[iou_highest_idx]
+        #print("highest iou: {}, azim: {}, elev: {}".format(iou_calcs[iou_highest_idx], pred_azim, pred_elev))
+
+        # interpolating between rendered distances to find best distance for predicted azimuth and elevation
+        # TODO: add edge case where no render fits in frame
+        azims = torch.ones(num_dists) * pred_azim
+        elevs = torch.ones(num_dists) * pred_elev
+        dists = torch.linspace(0.5, 3, num_dists)
+        renders = utils.batched_render(mesh, azims, elevs, dists, batch_size, device)
+        iou_calcs = []
+        rendered_image_fits = []
+        for i in range(renders.shape[0]):
+            iou = get_iou(renders[i].cpu().numpy(), mask)
+            iou_calcs.append(iou)
+            rendered_image_fits.append(rgba_obj_in_frame(renders[i].cpu().numpy()))
+        iou_argsort = np.argsort(iou_calcs)[::-1]
+        rendered_image_fits = np.array(rendered_image_fits)[iou_argsort]
+
+        # choose distance with highest iou, whose rendered image will fit completely in the frame
+        i = 0
+        while not rendered_image_fits[i]:
+            i+=1
+            # if nothing fits, just return the highest IoU even though it doesn't fit
+            if i >= len(rendered_image_fits):
+                print("Couldn't find a pose which fits entirely")
+                i=0
+                break
+
+        pred_dist = dists[iou_argsort[i]]
+        iou = iou_calcs[iou_argsort[i]]
+        render = renders[iou_argsort[i]]
+        
+    return pred_azim, pred_elev, pred_dist, render, iou
+
+
+def brute_force_estimate_dist(mesh, mask, azim, elev, num_dists, device, batch_size=8):
+    with torch.no_grad():
+        pred_azim = azim
+        pred_elev = elev
         #print("highest iou: {}, azim: {}, elev: {}".format(iou_calcs[iou_highest_idx], pred_azim, pred_elev))
 
         # interpolating between rendered distances to find best distance for predicted azimuth and elevation

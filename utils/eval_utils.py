@@ -5,6 +5,39 @@ import torch
 import numpy as np
 
 from im2mesh.utils.libkdtree import KDTree
+from evaluation import compute_iou_2d, compute_iou_2d_multi, compute_iou_2d_given_pose, compute_iou_3d, compute_chamfer_L1
+
+
+def eval_metrics(input_img, rec_mesh, rec_mesh_torch, gt_mesh, gt_mesh_torch, device, metrics_to_eval=["2d_iou", "3d_iou", "3d_iou_norm", "chamfer_L1", "chamfer_L1_norm"],
+                 pred_azim=None, pred_elev=None, pred_dist=None, points=None):
+    
+    all_metrics_list = ["2d_iou", "2d_iou_multi", "3d_iou", "3d_iou_norm", "chamfer_L1", "chamfer_L1_norm"]
+    for metric in metrics_to_eval:
+        if metric not in all_metrics_list:
+            raise ValueError("Metric {} is unknown.".format(metric))
+    
+    metrics_dict = {metric:0 for metric in all_metrics_list}
+    debug_info_dict = {metric:None for metric in all_metrics_list}
+    if "2d_iou" in metrics_to_eval:
+        # TODO: not sure if using the original pred pose for the processed iou is legitimate
+        if pred_azim is not None and pred_elev is not None and pred_dist is not None:
+            metrics_dict["2d_iou"] = compute_iou_2d_given_pose(rec_mesh_torch, input_img, device, pred_azim, pred_elev, pred_dist)
+        else:
+            metrics_dict["2d_iou"] = compute_iou_2d(rec_mesh_torch, input_img, device)
+
+    if "2d_iou_multi" in metrics_to_eval:
+        metrics_dict["2d_iou_multi"], debug_info_dict["2d_iou_multi"] = compute_iou_2d_multi(rec_mesh_torch, gt_mesh_torch, device, num_azims=8)
+
+    if "3d_iou" in metrics_to_eval:
+        metrics_dict["3d_iou"] = compute_iou_3d(rec_mesh, rec_mesh_torch, gt_mesh, gt_mesh_torch, points=points)
+    if "3d_iou_norm" in metrics_to_eval:
+        metrics_dict["3d_iou_norm"] = compute_iou_3d(rec_mesh, rec_mesh_torch, gt_mesh, gt_mesh_torch, full_unit_normalize=True)
+    if "chamfer_L1" in metrics_to_eval:
+        metrics_dict["chamfer_L1"] = compute_chamfer_L1(rec_mesh, rec_mesh_torch, gt_mesh, gt_mesh_torch)
+    if "chamfer_L1_norm" in metrics_to_eval:
+        metrics_dict["chamfer_L1_norm"] = compute_chamfer_L1(rec_mesh, rec_mesh_torch, gt_mesh, gt_mesh_torch, full_unit_normalize=True)
+        
+    return metrics_dict, debug_info_dict
 
 
 
@@ -17,37 +50,6 @@ def normalize_pointclouds(points):
 
     return normalized_points
 
-
-# points: a tensor of 3d points
-def normalize_pointclouds_numpy_all_axes_slow(points):
-    # TODO: This assumes the pointcloud is centered on the origin and there are pos and neg points on for every axis
-    # not sure if this will always hold; may need to center pointcloud first
-    normalized_points = np.copy(points)
-    max_vert_values = np.amax(points, axis=0)
-    min_vert_values = np.amin(points, axis=0)
-    for i in range(normalized_points.shape[0]):
-
-        x = normalized_points[i][0]
-        if x > 0:
-            x = x / max_vert_values[0]
-        else:
-            x = x / abs(min_vert_values[0])
-
-        y = normalized_points[i][1]
-        if y > 0:
-            y = y / max_vert_values[1]
-        else:
-            y = y / abs(min_vert_values[1])
-
-        z = normalized_points[i][2]
-        if z > 0:
-            z = z / max_vert_values[2]
-        else:
-            z = z / abs(min_vert_values[2])
-
-        normalized_points[i] = np.array([x,y,z])
-
-    return normalized_points
 
 
 # points: a tensor of 3d points

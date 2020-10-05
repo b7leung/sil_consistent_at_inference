@@ -17,6 +17,7 @@ from scipy import ndimage
 from skimage.transform import resize
 from skimage import img_as_bool
 from tqdm import tqdm
+import torch.nn as nn
 
 
 # Util function for loading meshes
@@ -39,8 +40,50 @@ from pytorch3d.renderer import (
     SoftPhongShader,
     HardPhongShader,
     SoftSilhouetteShader,
-    BlendParams
+    HardFlatShader,
+    BlendParams,
+    softmax_rgb_blend
 )
+
+from pytorch3d.renderer.mesh.shading import flat_shading
+
+class SoftFlatShader(nn.Module):
+
+    def __init__(self, device="cpu", cameras=None, lights=None, materials=None, blend_params=None):
+        super().__init__()
+        self.lights = lights if lights is not None else PointLights(device=device)
+        self.materials = (
+            materials if materials is not None else Materials(device=device)
+        )
+        self.cameras = cameras
+        self.blend_params = blend_params if blend_params is not None else BlendParams()
+
+    def forward(self, fragments, meshes, **kwargs) -> torch.Tensor:
+        cameras = kwargs.get("cameras", self.cameras)
+        if cameras is None:
+            msg = "Cameras must be specified either at initialization \
+                or in the forward pass of HardFlatShader"
+            raise ValueError(msg)
+        texels = meshes.sample_textures(fragments)
+        lights = kwargs.get("lights", self.lights)
+        materials = kwargs.get("materials", self.materials)
+        blend_params = kwargs.get("blend_params", self.blend_params)
+        colors = flat_shading(
+            meshes=meshes,
+            fragments=fragments,
+            texels=texels,
+            lights=lights,
+            cameras=cameras,
+            materials=materials,
+        )
+        images = softmax_rgb_blend(colors, fragments, blend_params)
+        return images
+
+
+
+
+
+
 
 # General config
 def load_config(path, default_path=None):
@@ -108,7 +151,7 @@ def load_untextured_mesh(mesh_path, device):
 # for rendering a single image
 #TODO: double check params for silhouette case
 # https://github.com/facebookresearch/pytorch3d/blob/master/docs/tutorials/camera_position_optimization_with_differentiable_rendering.ipynb
-def render_mesh(mesh, R, T, device, img_size=512, silhouette=False):
+def render_mesh(mesh, R, T, device, img_size=512, silhouette=False, soft_flat_shader=False):
     cameras = OpenGLPerspectiveCameras(device=device, R=R, T=T)
 
 
@@ -133,24 +176,42 @@ def render_mesh(mesh, R, T, device, img_size=512, silhouette=False):
             faces_per_pixel=1, 
         )
         lights = PointLights(device=device, location=[[0.0, 5.0, -10.0]])
-        renderer = MeshRenderer(
-            rasterizer=MeshRasterizer(
-                cameras=cameras, 
-                raster_settings=raster_settings
-            ),
-            shader=SoftPhongShader(
-                device=device, 
-                cameras=cameras,
-                lights=lights
+
+        if soft_flat_shader:
+
+            renderer = MeshRenderer(
+                rasterizer=MeshRasterizer(
+                    cameras=cameras, 
+                    raster_settings=raster_settings
+                ),
+                shader=HardFlatShader(
+                    device=device, 
+                    cameras=cameras,
+                    lights=lights
+                )
             )
-        )
+        
+        else:
+
+            renderer = MeshRenderer(
+                rasterizer=MeshRasterizer(
+                    cameras=cameras, 
+                    raster_settings=raster_settings
+                ),
+                shader=SoftPhongShader(
+                    device=device, 
+                    cameras=cameras,
+                    lights=lights
+                )
+            )
 
     rendered_images = renderer(mesh, cameras=cameras)
     return rendered_images
 
 
 # for batched rendering of many images
-def batched_render(mesh, azims, elevs, dists, batch_size, device, silhouette=False, img_size=512):
+# mesh parameter is assumed to be in the cpu.
+def batched_render(mesh, azims, elevs, dists, batch_size, device, silhouette=False, img_size=512, soft_flat_shader=False):
     meshes = mesh.extend(batch_size)
     num_renders = azims.shape[0]
     renders = []
@@ -164,10 +225,57 @@ def batched_render(mesh, azims, elevs, dists, batch_size, device, silhouette=Fal
         R, T = look_at_view_transform(batch_dists, batch_elevs, batch_azims) 
         if batch_azims.shape[0] != batch_size:
             meshes = mesh.extend(batch_azims.shape[0])
-        batch_renders = render_mesh(meshes, R, T, device, silhouette=silhouette, img_size=img_size)
-        renders.append(batch_renders)
+        batch_renders = render_mesh(meshes, R, T, device, silhouette=silhouette, img_size=img_size, soft_flat_shader=soft_flat_shader)
+        renders.append(batch_renders.cpu())
     renders = torch.cat(renders)
     return renders
+
+
+class BatchedRenderIterable:
+
+
+    def __init__(self, mesh, azims, elevs, dists, batch_size, device, silhouette=False, img_size=512):
+        self.mesh = mesh
+        self.azims = azims
+        self.elevs = elevs
+        self.dists = dists
+        self.batch_size = batch_size
+        self.device = device
+        self.silhouette = silhouette
+        self.img_size = img_size
+
+        self.meshes = mesh.extend(batch_size)
+        self.num_renders = azims.shape[0]
+        self.num_iterations_required = int(np.ceil(self.num_renders/self.batch_size))
+
+        self.batch_i = 0
+
+
+    def __iter__(self):
+        return self
+    
+
+    def __next__(self):
+
+        if self.batch_i < self.num_iterations_required:
+
+            pose_idx_start = self.batch_i * self.batch_size
+            pose_idx_end = min((self.batch_i+1) * self.batch_size, self.num_renders)
+            batch_azims = self.azims[pose_idx_start:pose_idx_end]
+            batch_elevs = self.elevs[pose_idx_start:pose_idx_end]
+            batch_dists = self.dists[pose_idx_start:pose_idx_end]
+            
+            R, T = look_at_view_transform(batch_dists, batch_elevs, batch_azims) 
+            if batch_azims.shape[0] != self.batch_size:
+                meshes = self.mesh.extend(batch_azims.shape[0])
+            else:
+                meshes = self.meshes
+            batch_renders = render_mesh(meshes, R, T, self.device, silhouette=self.silhouette, img_size=self.img_size)
+            self.batch_i += 1
+
+            return batch_renders.cpu()
+        else:
+            raise StopIteration
 
 
 class TqdmPrintEvery(io.StringIO):
