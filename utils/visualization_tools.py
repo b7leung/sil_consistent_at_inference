@@ -15,7 +15,7 @@ def show_renders(renders_batch, masks=True):
         num_renders = renders_batch.shape[0]
     imgs_per_row = 8
     num_rows = int(np.ceil(num_renders/imgs_per_row))
-    fig, ax = plt.subplots(nrows=num_rows, ncols=imgs_per_row, squeeze=False, figsize=(2*imgs_per_row,2*num_rows))
+    fig, ax = plt.subplots(nrows=num_rows, ncols=max(num_renders, imgs_per_row), squeeze=False, figsize=(2*imgs_per_row,2*num_rows))
 
     for i in range(num_renders):
         col_i = int(np.floor(i/imgs_per_row))

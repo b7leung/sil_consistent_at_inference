@@ -1,0 +1,5 @@
+inherit_from: configs/final_refinement_params.yaml
+dataset:
+  input_dir_mesh: "data/onet_chair_pix3d_no_DA_simplified"
+  input_dir_img: "data/img_pix3d_chair/chair"
+  gt_shapes_lst_path: "data/gt_shapes_path_lists/pix3d_chair_gt_shapes.lst"

@@ -68,15 +68,28 @@ def compute_iou_2d(rec_mesh_torch, input_img, device, num_azims=20, num_elevs=20
 
 
 def compute_iou_2d_given_pose(rec_mesh_torch, input_img, device, azim, elev, dist):
-    mask = np.asarray(input_img)[:,:,3] > 0
+
+    warnings = []
+    input_img_mask = torch.tensor(np.asarray(input_img))[:,:,3] > 0
+    input_img_mask = center_and_resize_mask(input_img_mask)
     R, T = look_at_view_transform(dist, elev, azim) 
-    render = utils.render_mesh(rec_mesh_torch, R, T, device)[0]
-    iou = get_iou(render.cpu().numpy(), mask)   
-    return iou, []
+    render = utils.render_mesh(rec_mesh_torch, R, T, device, img_size=input_img_mask.shape[0])[0]
+    render_mask = center_and_resize_mask(render[:,:,3] > 0)
+
+    if render_mask is None:
+        iou = 0
+        warnings.append("iou_2d_input: no bbox found")
+    else:
+        iou = get_mask_iou(input_img_mask, render_mask)
+
+    #iou = get_iou(render.cpu().numpy(), mask)   
+    return iou, warnings, (input_img_mask, render_mask)
 
 
 # assums mask is a tensor
+# throws indexerror if no bbox found
 def center_and_resize_mask(mask):
+
     try:
         mask = mask.cpu().numpy()
         mask = mask.astype(np.uint8)
@@ -105,12 +118,10 @@ def center_and_resize_mask(mask):
 
         normalized_mask = torch.tensor(normalized_mask > 0)
         return normalized_mask
-
-
     except IndexError:
-        # if no bounding box found, return None
         print("no bbox found")
-        return 0
+        return None
+
 
 
 def get_mask_iou(render1_mask, render2_mask):
@@ -136,17 +147,23 @@ def compute_iou_2d_multi(rec_mesh_torch, gt_mesh_torch, device, num_azims=8, num
     avg_2d_iou = 0
     gt_masks = []
     rec_masks = []
+    warnings = []
     for render_i in range(num_azims*num_elevs):
         gt_mask = center_and_resize_mask(gt_renders[render_i][:,:,3] > 0)
         rec_mask = center_and_resize_mask(rec_renders[render_i][:,:,3] > 0)
-        gt_masks.append(gt_mask)
-        rec_masks.append(rec_mask)
-        iou_2d_score = get_mask_iou(gt_mask, rec_mask)
+        if gt_mask is not None and rec_mask is not None:
+            gt_masks.append(gt_mask)
+            rec_masks.append(rec_mask)
+            iou_2d_score = get_mask_iou(gt_mask, rec_mask)
+        else:
+            # no bbox found
+            iou_2d_score = 0
+            warnings.append("iou_2d_multi: no bbox found")
         avg_2d_iou += iou_2d_score
         iou_2d_scores.append(iou_2d_scores)
     avg_2d_iou = avg_2d_iou / (num_azims*num_elevs)
 
-    return avg_2d_iou, (gt_masks, rec_masks, iou_2d_scores)
+    return avg_2d_iou, warnings, (gt_masks, rec_masks, iou_2d_scores)
 
 
 
@@ -276,15 +293,21 @@ def evaluate(input_img_dict, reconstructions_dict, gt_shapes_dict, results_outpu
         if not gt_mesh.is_watertight:
             instance_record["eval_warnings"].append("gt_obj_path is not watertight")
 
-        if "2d_iou" in metrics_to_eval:
+        if "2d_iou_input" in metrics_to_eval:
             if cached_pred_poses == {}:
                 iou_2d, warnings = compute_iou_2d(rec_mesh_torch, input_img, device)
+                raise
             else:
                 azim = cached_pred_poses[instance]["azim"]
                 elev = cached_pred_poses[instance]["elev"]
                 dist = cached_pred_poses[instance]["dist"]
-                iou_2d, warnings = compute_iou_2d_given_pose(rec_mesh_torch, input_img, device, azim, elev, dist)
-            instance_record["2d_iou"] = iou_2d
+                iou_2d, warnings, _ = compute_iou_2d_given_pose(rec_mesh_torch, input_img, device, azim, elev, dist)
+            instance_record["2d_iou_input"] = iou_2d
+            instance_record["eval_warnings"] += warnings
+
+        if "2d_iou_multi" in metrics_to_eval:
+            iou_2d_multi, warnings, _ = compute_iou_2d_multi(rec_mesh_torch, gt_mesh_torch, device)
+            instance_record["2d_iou_multi"] = iou_2d_multi
             instance_record["eval_warnings"] += warnings
 
         if "3d_iou" in metrics_to_eval:
@@ -325,12 +348,13 @@ def evaluate(input_img_dict, reconstructions_dict, gt_shapes_dict, results_outpu
 # (i.e. no further alignment/processing is done before calculating performancemetrics)
 # refined_mesh_dir needs to have a yaml file with dataset info filled out (input_dir_img, gt_shapes_lst_path)
 if __name__ == "__main__":
-    all_metrics_list = ["2d_iou", "3d_iou", "3d_iou_norm", "chamfer_L1", "chamfer_L1_norm"]
+    all_metrics_list = ["2d_iou_input", "2d_iou_multi", "3d_iou", "3d_iou_norm", "chamfer_L1", "chamfer_L1_norm"]
 
     parser = argparse.ArgumentParser(description='Evaluates meshes in a folder')
     parser.add_argument('refined_meshes_dir', type=str, help='Path to folder with refined meshes')
     parser.add_argument('--gpu', type=int, default=0, help='Gpu number to use.')
     parser.add_argument('--metrics', nargs='+', default=all_metrics_list, help='Gpu number to use.')
+    parser.add_argument('--use_gt_poses', action='store_true', help='Perform refinements with the ground truth pose, located in the image dir.')
     parser.add_argument('--recompute', action='store_true', help='Recompute entries, even for ones which already exist.')
     args = parser.parse_args()
 
@@ -356,11 +380,15 @@ if __name__ == "__main__":
                 gt_shapes_dict[line.split(" ")[0]] = line.split(" ")[1]
 
     # combining all cached predicted poses
-    cached_pred_poses = {}
-    pred_pose_paths = list(Path(args.refined_meshes_dir).rglob('pred_poses.p'))
-    for pred_pose_path in pred_pose_paths:
-        curr_cache = pickle.load(open(pred_pose_path, "rb"))
-        cached_pred_poses = {**cached_pred_poses, **curr_cache}
+    pred_poses_dict = {}
+    if args.use_gt_poses:
+        pred_poses_dict = pickle.load(open(os.path.join(img_dir, "renders_camera_params.pt"), "rb"))
+        pred_poses_dict = {instance:pred_poses_dict[instance] for instance in pred_poses_dict}
+    else:
+        pred_pose_paths = list(Path(args.refined_meshes_dir).rglob('pred_poses.p'))
+        for pred_pose_path in pred_pose_paths:
+            curr_cache = pickle.load(open(pred_pose_path, "rb"))
+            pred_poses_dict = {**pred_poses_dict, **curr_cache}
 
     output_results_path = os.path.join(args.refined_meshes_dir, "eval_results.pkl")
     if not args.recompute and os.path.exists(output_results_path):
@@ -372,4 +400,4 @@ if __name__ == "__main__":
     else:
         previous_evaluations_df = None
     
-    evaluate(input_img_dict, reconstructions_dict, gt_shapes_dict, output_results_path, args.metrics, cached_pred_poses, device, evaluations_df=previous_evaluations_df)
+    evaluate(input_img_dict, reconstructions_dict, gt_shapes_dict, output_results_path, args.metrics, pred_poses_dict, device, evaluations_df=previous_evaluations_df)

@@ -1,0 +1,5 @@
+inherit_from: configs/final_refinement_params.yaml
+dataset:
+  input_dir_mesh: "/home/svcl-oowl/brandon/research/occupancy_networks/out/pytorch3d_renders/04090263/generation/meshes"
+  input_dir_img: "data/pytorch3d_shapenet_renders/04090263/rgba"
+  gt_shapes_lst_path: "data/gt_shapes_path_lists/shapenet_04090263_gt_shapes.lst"
