@@ -28,11 +28,18 @@ def predict_pose(cfg, device, meshes_to_process):
     cached_pred_poses = {}
     tqdm_out = utils.TqdmPrintEvery()
     for instance_name in tqdm(meshes_to_process, file=tqdm_out, desc="Predicting Poses"):
+        print(instance_name)
         img_path = os.path.join(input_dir_img, instance_name + ".png")
         mesh_path = os.path.join(input_dir_mesh, instance_name + ".obj")
         mask = np.asarray(Image.open(img_path))[:,:,3] > 0
         with torch.no_grad():
             mesh = utils.load_untextured_mesh(mesh_path, device)
+
+            # this catches an error in occnet reconstructions where the output has no vertices
+            if mesh.verts_packed().shape[0] == 0:
+                print("skipped")
+                continue
+
             pred_azim, pred_elev, pred_dist, render, iou = brute_force_estimate_pose(mesh, mask, num_azims, num_elevs, num_dists, device, 8)
             cached_pred_poses[instance_name] = {"azim": pred_azim.item(), "elev": pred_elev.item(), "dist": pred_dist.item()}
 

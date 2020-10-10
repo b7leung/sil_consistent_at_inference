@@ -356,6 +356,7 @@ if __name__ == "__main__":
     parser.add_argument('--metrics', nargs='+', default=all_metrics_list, help='Gpu number to use.')
     parser.add_argument('--use_gt_poses', action='store_true', help='Perform refinements with the ground truth pose, located in the image dir.')
     parser.add_argument('--recompute', action='store_true', help='Recompute entries, even for ones which already exist.')
+    parser.add_argument('--output_filename', type=str, default="eval_results", help='Name of output evaluation .pkl')
     args = parser.parse_args()
 
     for metric in args.metrics:
@@ -390,7 +391,7 @@ if __name__ == "__main__":
             curr_cache = pickle.load(open(pred_pose_path, "rb"))
             pred_poses_dict = {**pred_poses_dict, **curr_cache}
 
-    output_results_path = os.path.join(args.refined_meshes_dir, "eval_results.pkl")
+    output_results_path = os.path.join(args.refined_meshes_dir, "{}.pkl".format(args.output_filename))
     if not args.recompute and os.path.exists(output_results_path):
         previous_evaluations_df = pd.read_pickle(output_results_path)
         previous_instances = list(previous_evaluations_df['instance'])

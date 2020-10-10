@@ -8,7 +8,7 @@ from im2mesh.utils.libkdtree import KDTree
 from evaluation import compute_iou_2d, compute_iou_2d_multi, compute_iou_2d_given_pose, compute_iou_3d, compute_chamfer_L1
 
 
-def eval_metrics(input_img, rec_mesh, rec_mesh_torch, gt_mesh, gt_mesh_torch, device, metrics_to_eval= ["2d_iou_input", "2d_iou_multi", "3d_iou", "3d_iou_norm", "chamfer_L1", "chamfer_L1_norm"],
+def eval_metrics(input_img, rec_mesh, rec_mesh_torch, gt_mesh, gt_mesh_torch, device, metrics_to_eval=["2d_iou_input", "2d_iou_multi", "3d_iou", "3d_iou_norm", "chamfer_L1", "chamfer_L1_norm"],
                  pred_azim=None, pred_elev=None, pred_dist=None, points=None):
     
     all_metrics_list =  ["2d_iou_input", "2d_iou_multi", "3d_iou", "3d_iou_norm", "chamfer_L1", "chamfer_L1_norm"]
@@ -16,8 +16,8 @@ def eval_metrics(input_img, rec_mesh, rec_mesh_torch, gt_mesh, gt_mesh_torch, de
         if metric not in all_metrics_list:
             raise ValueError("Metric {} is unknown.".format(metric))
     
-    metrics_dict = {metric:0 for metric in all_metrics_list}
-    debug_info_dict = {metric:None for metric in all_metrics_list}
+    metrics_dict = {metric:0 for metric in metrics_to_eval}
+    debug_info_dict = {metric:None for metric in metrics_to_eval}
     if "2d_iou_input" in metrics_to_eval:
         # TODO: not sure if using the original pred pose for the processed iou is legitimate
         if pred_azim is not None and pred_elev is not None and pred_dist is not None:

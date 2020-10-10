@@ -139,6 +139,37 @@ def brute_force_estimate_dist(mesh, mask, azim, elev, num_dists, device, batch_s
     return pred_azim, pred_elev, pred_dist, render, iou
 
 
+def brute_force_estimate_dist_cam_pos(mesh, mask, cam_pos, num_dists, device, batch_size=8):
+    with torch.no_grad():
+        eyes = [np.array(cam_pos)*i for i in np.linspace(0.05, 1, num_dists)]
+        R, T = look_at_view_transform(eye=eyes)
+        meshes = mesh.extend(num_dists)
+        renders = utils.render_mesh(meshes, R, T, device)
+        
+        iou_calcs = []
+        rendered_image_fits = []
+        for i in range(renders.shape[0]):
+            iou = get_iou(renders[i].cpu().numpy(), mask)
+            iou_calcs.append(iou)
+            rendered_image_fits.append(rgba_obj_in_frame(renders[i].cpu().numpy()))
+        iou_argsort = np.argsort(iou_calcs)[::-1]
+        rendered_image_fits = np.array(rendered_image_fits)[iou_argsort]
+
+        # choose distance with highest iou, whose rendered image will fit completely in the frame
+        i = 0
+        while not rendered_image_fits[i]:
+            i+=1
+            # if nothing fits, just return the highest IoU even though it doesn't fit
+            if i >= len(rendered_image_fits):
+                print("Couldn't find a pose which fits entirely")
+                i=0
+                break
+
+        best_cam_pos = eyes[iou_argsort[i]]
+        
+    return best_cam_pos
+
+
 def crop_binary_mask(mask):
     try:
         # Get the height and width of bbox
