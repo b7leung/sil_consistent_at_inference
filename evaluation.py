@@ -235,7 +235,8 @@ def compute_chamfer_L1(rec_mesh, rec_mesh_torch, gt_mesh, gt_mesh_torch, sample_
             gt_pointcloud_normalized = eval_utils.normalize_pointclouds(gt_pointcloud)
         except RuntimeError:
             # this exception is meant to catch case where no occupancies could be found.
-            return None
+            
+            return np.nan, ["couldn't compute chamfer_l1 sample uniformly"]
     
     else:
         raise ValueError("method not recognized")
@@ -331,6 +332,17 @@ def evaluate(input_img_dict, reconstructions_dict, gt_shapes_dict, results_outpu
             #    with open(eval_log_path, "a") as f:
             #        f.write("WARNING: couldn't compute chamfer_L1 for instance {}\n".format(instance))
 
+        if "chamfer_L1_uniformly" in metrics_to_eval:
+            chamfer_l1, warnings = compute_chamfer_L1(rec_mesh, rec_mesh_torch, gt_mesh, gt_mesh_torch, sample_method="sample_uniformly")
+            instance_record["chamfer_L1_uniformly"] = chamfer_l1
+            instance_record["eval_warnings"] += warnings
+            #if instance_record["chamfer_L1"] is None:
+            #    instance_record = {**{metric:-1 for metric in metrics_to_eval},
+            #        **{"instance": instance, "input_img_path": input_img_path, "rec_obj_path": rec_obj_path, "gt_obj_path": gt_obj_path}}
+            #    print("WARNING: couldn't compute chamfer_L1 for instance {}".format(instance))
+            #    with open(eval_log_path, "a") as f:
+            #        f.write("WARNING: couldn't compute chamfer_L1 for instance {}\n".format(instance))
+
         if "chamfer_L1_norm" in metrics_to_eval:
             chamfer_l1_norm, warnings = compute_chamfer_L1(rec_mesh, rec_mesh_torch, gt_mesh, gt_mesh_torch, full_unit_normalize=True)
             instance_record["chamfer_L1_norm"] = chamfer_l1_norm
@@ -348,7 +360,7 @@ def evaluate(input_img_dict, reconstructions_dict, gt_shapes_dict, results_outpu
 # (i.e. no further alignment/processing is done before calculating performancemetrics)
 # refined_mesh_dir needs to have a yaml file with dataset info filled out (input_dir_img, gt_shapes_lst_path)
 if __name__ == "__main__":
-    all_metrics_list = ["2d_iou_input", "2d_iou_multi", "3d_iou", "3d_iou_norm", "chamfer_L1", "chamfer_L1_norm"]
+    all_metrics_list = ["2d_iou_input", "2d_iou_multi", "3d_iou", "3d_iou_norm", "chamfer_L1", "chamfer_L1_norm", "chamfer_L1_uniformly"]
 
     parser = argparse.ArgumentParser(description='Evaluates meshes in a folder')
     parser.add_argument('refined_meshes_dir', type=str, help='Path to folder with refined meshes')

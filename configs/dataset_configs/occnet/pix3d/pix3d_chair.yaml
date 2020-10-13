@@ -1,0 +1,5 @@
+inherit_from: configs/final_refinement_params.yaml
+dataset:
+  input_dir_mesh: "/home/svcl-oowl/brandon/research/occupancy_networks/out/pix3d/chair/generation/meshes"
+  input_dir_img: "data/input_images/pix3d_images_processed_filtered/chair/rgba"
+  gt_shapes_lst_path: "data/gt_shapes_path_lists/pix3d_chair_gt_shapes.lst"

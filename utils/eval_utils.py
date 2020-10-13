@@ -8,10 +8,10 @@ from im2mesh.utils.libkdtree import KDTree
 from evaluation import compute_iou_2d, compute_iou_2d_multi, compute_iou_2d_given_pose, compute_iou_3d, compute_chamfer_L1
 
 
-def eval_metrics(input_img, rec_mesh, rec_mesh_torch, gt_mesh, gt_mesh_torch, device, metrics_to_eval=["2d_iou_input", "2d_iou_multi", "3d_iou", "3d_iou_norm", "chamfer_L1", "chamfer_L1_norm"],
-                 pred_azim=None, pred_elev=None, pred_dist=None, points=None):
+def eval_metrics(input_img, rec_mesh, rec_mesh_torch, gt_mesh, gt_mesh_torch, device, metrics_to_eval=["2d_iou_input", "2d_iou_multi", "3d_iou", "3d_iou_norm", "chamfer_L1", "chamfer_L1_norm", "chamfer_L1_uniformly"],
+                 pred_azim=None, pred_elev=None, pred_dist=None, points=None, num_sample_points=900000):
     
-    all_metrics_list =  ["2d_iou_input", "2d_iou_multi", "3d_iou", "3d_iou_norm", "chamfer_L1", "chamfer_L1_norm"]
+    all_metrics_list =  ["2d_iou_input", "2d_iou_multi", "3d_iou", "3d_iou_norm", "chamfer_L1", "chamfer_L1_norm", "chamfer_L1_uniformly"]
     for metric in metrics_to_eval:
         if metric not in all_metrics_list:
             raise ValueError("Metric {} is unknown.".format(metric))
@@ -29,13 +29,16 @@ def eval_metrics(input_img, rec_mesh, rec_mesh_torch, gt_mesh, gt_mesh_torch, de
         metrics_dict["2d_iou_multi"], _, debug_info_dict["2d_iou_multi"] = compute_iou_2d_multi(rec_mesh_torch, gt_mesh_torch, device, num_azims=8)
 
     if "3d_iou" in metrics_to_eval:
-        metrics_dict["3d_iou"], _ = compute_iou_3d(rec_mesh, rec_mesh_torch, gt_mesh, gt_mesh_torch, points=points)
+        metrics_dict["3d_iou"], _ = compute_iou_3d(rec_mesh, rec_mesh_torch, gt_mesh, gt_mesh_torch, points=points, num_sample_points=num_sample_points)
     if "3d_iou_norm" in metrics_to_eval:
         metrics_dict["3d_iou_norm"], _ = compute_iou_3d(rec_mesh, rec_mesh_torch, gt_mesh, gt_mesh_torch, full_unit_normalize=True)
     if "chamfer_L1" in metrics_to_eval:
-        metrics_dict["chamfer_L1"], _ = compute_chamfer_L1(rec_mesh, rec_mesh_torch, gt_mesh, gt_mesh_torch)
+        metrics_dict["chamfer_L1"], _ = compute_chamfer_L1(rec_mesh, rec_mesh_torch, gt_mesh, gt_mesh_torch, num_sample_points=num_sample_points)
     if "chamfer_L1_norm" in metrics_to_eval:
         metrics_dict["chamfer_L1_norm"], _ = compute_chamfer_L1(rec_mesh, rec_mesh_torch, gt_mesh, gt_mesh_torch, full_unit_normalize=True)
+    if "chamfer_L1_uniformly" in metrics_to_eval:
+        metrics_dict["chamfer_L1_uniformly"], _ = compute_chamfer_L1(rec_mesh, rec_mesh_torch, gt_mesh, gt_mesh_torch, sample_method="sample_uniformly", num_sample_points=num_sample_points)
+        
         
     return metrics_dict, debug_info_dict
 
