@@ -28,7 +28,7 @@ def show_renders(renders_batch, masks=True):
     plt.pause(0.05)
 
 
-
+from matplotlib.backends.backend_agg import FigureCanvasAgg
 
 # displays meshes at the predicted pose
 def show_refinement_results(input_image, mesh_original, mesh_processed, pred_dist, pred_elev, pred_azim, device, num_novel_view=3, img_size=224):
@@ -46,7 +46,8 @@ def show_refinement_results(input_image, mesh_original, mesh_processed, pred_dis
     
     # visualizing
     num_columns = 3 + num_novel_view
-    fig, ax = plt.subplots(nrows=1, ncols=num_columns, squeeze=False, figsize=(15,5))
+    fig, ax = plt.subplots(nrows=1, ncols=num_columns, squeeze=False, figsize=(16,3))
+
     col_i = 0
     # TODO: show on black bg
     ax[0][col_i].imshow(input_image)
@@ -72,3 +73,19 @@ def show_refinement_results(input_image, mesh_original, mesh_processed, pred_dis
         ax[0][col_i+i].xaxis.set_visible(False)
         ax[0][col_i+i].yaxis.set_visible(False)
     plt.pause(0.05)
+
+    # https://stackoverflow.com/questions/35355930/matplotlib-figure-to-image-as-a-numpy-array
+    fig.tight_layout(pad=0.5)
+
+    # To remove the huge white borders
+    #for axis in ax.flatten():
+    #    axis.margins(0)
+
+    #fig.savefig("temp.jpg")
+    #image_from_plot = Image.open("temp.jpg")
+    
+
+    fig.canvas.draw()
+    image_from_plot = np.frombuffer(fig.canvas.tostring_rgb(), dtype=np.uint8)
+    image_from_plot = image_from_plot.reshape(fig.canvas.get_width_height()[::-1] + (3,))
+    return image_from_plot

@@ -21,8 +21,8 @@ model:
 
 # parameters for test-time optimization
 refinement:
-  num_iterations: 400
-  learning_rate: 0.0001
+  num_iterations: 350
+  learning_rate: 0.00007
 
 
 # loss function parameters

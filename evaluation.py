@@ -379,6 +379,7 @@ if __name__ == "__main__":
     # processing cfg file
     #np.random.seed(0)
     device = torch.device("cuda:"+str(args.gpu))
+    #device = torch.device("cpu")
     cfg = utils.load_config(glob.glob(os.path.join(args.refined_meshes_dir, "*.yaml"))[0])
 
     img_dir = cfg["dataset"]["input_dir_img"]

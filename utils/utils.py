@@ -81,7 +81,34 @@ class SoftFlatShader(nn.Module):
 
 
 
+# General config
+def load_config_dict(cfg_special, default_path=None):
+    ''' Loads config file.
 
+    Args:  
+        path (str): path to config file
+        default_path (bool): whether to use default path
+    '''
+    # Load configuration from file itself
+
+
+    # Check if we should inherit from a config
+    inherit_from = cfg_special.get('inherit_from')
+
+    # If yes, load this config first as default
+    # If no, use the default_path
+    if inherit_from is not None:
+        cfg = load_config(inherit_from, default_path)
+    elif default_path is not None:
+        with open(default_path, 'r') as f:
+            cfg = yaml.load(f, Loader=yaml.FullLoader)
+    else:
+        cfg = dict()
+
+    # Include main configuration
+    update_recursive(cfg, cfg_special)
+
+    return cfg
 
 
 

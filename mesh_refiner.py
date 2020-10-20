@@ -97,6 +97,9 @@ class MeshRefiner():
         # optimizing  
         loss_info = pd.DataFrame()
         deformed_meshes = []
+        lowest_loss = None
+        best_deformed_mesh = None
+
         for i in tqdm(range(self.num_iterations)):
             deform_net.train()
             semantic_dis_net.eval()
@@ -114,10 +117,15 @@ class MeshRefiner():
             curr_train_info = {**curr_train_info, **{loss_name:loss_dict[loss_name].item() for loss_name in loss_dict}}
             loss_info = loss_info.append(curr_train_info, ignore_index=True)
 
-            if record_intermediate and (i % 100 == 0 or i == self.num_iterations-1):
-                deformed_meshes.append(deformed_mesh)
+            #if record_intermediate and (i % 100 == 0 or i == self.num_iterations-1):
+            if record_intermediate:
+                deformed_meshes.append(deformed_mesh.detach().cpu())
+
+            if lowest_loss is None or total_loss.item() < lowest_loss:
+                lowest_loss = total_loss.item()
+                best_deformed_mesh = deformed_mesh
 
         if record_intermediate:
             return deformed_meshes, loss_info
         else:
-            return deformed_mesh, loss_info
+            return best_deformed_mesh, loss_info
