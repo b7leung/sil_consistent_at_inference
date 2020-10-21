@@ -4,7 +4,7 @@ from torch.nn import functional as F
 from pytorch3d.renderer import look_at_view_transform
 from pytorch3d.loss import mesh_laplacian_smoothing, mesh_normal_consistency
 
-from utils import utils
+from utils import general_utils
 import deformation.losses as def_losses
 
 
@@ -34,7 +34,7 @@ def compute_render_sem_dis_logits(meshes_batch, semantic_discriminator_net, devi
     R, T = look_at_view_transform(dists, elevs, azims)
 
     extended_meshes = meshes_batch.extend(num_render)
-    renders = utils.render_mesh(extended_meshes, R, T, device, img_size=input_img_size, silhouette=sil_dis_input)
+    renders = general_utils.render_mesh(extended_meshes, R, T, device, img_size=input_img_size, silhouette=sil_dis_input)
 
     if sil_dis_input:
         # converting from [num_render, 224, 224, 4] silhouette render (only channel 4 has info) 
@@ -87,7 +87,7 @@ def batched_forward_pass(cfg, device, deform_net, semantic_dis_net, input_batch,
             pred_elev = pose_batch[:,1]
             pred_azim = pose_batch[:,2]
             R, T = look_at_view_transform(pred_dist, pred_elev, pred_azim) 
-            deformed_renders = utils.render_mesh(deformed_meshes, R, T, device, img_size=224, silhouette=True)
+            deformed_renders = general_utils.render_mesh(deformed_meshes, R, T, device, img_size=224, silhouette=True)
             deformed_silhouettes = deformed_renders[:, :, :, 3]
             mask_batch = input_batch["mask"].to(device)
             loss_dict["sil_loss"] = F.binary_cross_entropy(deformed_silhouettes, mask_batch)

@@ -112,7 +112,7 @@ def brute_force_estimate_dist(mesh, mask, azim, elev, num_dists, device, batch_s
         azims = torch.ones(num_dists) * pred_azim
         elevs = torch.ones(num_dists) * pred_elev
         dists = torch.linspace(0.5, 3, num_dists)
-        renders = utils.batched_render(mesh, azims, elevs, dists, batch_size, device)
+        renders = general_utils.batched_render(mesh, azims, elevs, dists, batch_size, device)
         iou_calcs = []
         rendered_image_fits = []
         for i in range(renders.shape[0]):
@@ -144,7 +144,7 @@ def brute_force_estimate_dist_cam_pos(mesh, mask, cam_pos, num_dists, device, ba
         eyes = [np.array(cam_pos)*i for i in np.linspace(0.05, 1, num_dists)]
         R, T = look_at_view_transform(eye=eyes)
         meshes = mesh.extend(num_dists)
-        renders = utils.render_mesh(meshes, R, T, device)
+        renders = general_utils.render_mesh(meshes, R, T, device)
         
         iou_calcs = []
         rendered_image_fits = []

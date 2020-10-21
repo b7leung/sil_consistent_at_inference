@@ -7,7 +7,7 @@ from pytorch3d.renderer import look_at_view_transform
 from torchvision import transforms
 import pickle
 
-from utils import utils
+from utils import general_utils
 
 # given a mesh and a plane of symmetry (represented by its unit normal)
 # computes the symmetry loss of the mesh, defined as the average
@@ -74,9 +74,9 @@ def image_symmetry_loss(mesh, sym_plane, num_azim, device, render_silhouettes=Tr
     # rendering
     meshes = mesh.extend(num_views_on_half*2)
     if render_silhouettes:
-        renders = utils.render_mesh(meshes, R, T, device, img_size=224, silhouette=True)[...,3]
+        renders = general_utils.render_mesh(meshes, R, T, device, img_size=224, silhouette=True)[...,3]
     else:
-        renders = utils.render_mesh(meshes, R, T, device, img_size=224, silhouette=False)
+        renders = general_utils.render_mesh(meshes, R, T, device, img_size=224, silhouette=False)
     
     # a sym_triple is [R1, R1_flipped, R2]
     sym_triples = []

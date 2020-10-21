@@ -7,7 +7,7 @@ from pytorch3d.renderer import look_at_view_transform
 import pandas as pd
 from tqdm.autonotebook import tqdm
 
-from utils import utils, network_utils
+from utils import general_utils, network_utils
 
 class PoseEstimationNetwork(nn.Module):
 
@@ -71,7 +71,7 @@ def nn_optimization_estimate_pose(mesh, rgba_image, iterations, lr, device, init
     best_pred_elev = init_elev
     best_pred_dist = init_dist
     R, T = look_at_view_transform(init_dist, init_elev, init_azim)
-    init_render = utils.render_mesh(mesh, R, T, device, img_size=224, silhouette=True)
+    init_render = general_utils.render_mesh(mesh, R, T, device, img_size=224, silhouette=True)
     init_silhouette = init_render[:, :, :, 3]
     best_sil_loss = F.binary_cross_entropy(init_silhouette, mask).item()
     loss_info = loss_info.append({"iteration":-1, "sil_loss": best_sil_loss}, ignore_index=True)
@@ -80,7 +80,7 @@ def nn_optimization_estimate_pose(mesh, rgba_image, iterations, lr, device, init
 
         pred_azim, pred_elev, pred_dist = pose_est_net.forward(init_azim, init_elev, init_dist)
         R, T = look_at_view_transform(pred_dist, pred_elev, pred_azim) 
-        render = utils.render_mesh(mesh, R, T, device, img_size=224, silhouette=True)
+        render = general_utils.render_mesh(mesh, R, T, device, img_size=224, silhouette=True)
         silhouette = render[:, :, :, 3]
 
         sil_loss = F.binary_cross_entropy(silhouette, mask)

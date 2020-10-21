@@ -370,6 +370,7 @@ if __name__ == "__main__":
     parser.add_argument('--recompute', action='store_true', help='Recompute entries, even for ones which already exist.')
     parser.add_argument('--output_filename', type=str, default="eval_results", help='Name of output evaluation .pkl')
     args = parser.parse_args()
+    
 
     for metric in args.metrics:
         if metric not in all_metrics_list:

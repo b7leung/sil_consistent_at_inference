@@ -12,7 +12,7 @@ import numpy as np
 from pytorch3d.io import save_obj
 import pytorch3d
 
-from utils import utils
+from utils import general_utils
 from mesh_refiner import MeshRefiner
 from utils.brute_force_pose_est import brute_force_estimate_pose, brute_force_estimate_dist
 
@@ -26,13 +26,13 @@ def predict_pose(cfg, device, meshes_to_process):
     num_dists = cfg['brute_force_pose_est']['num_dists']
 
     cached_pred_poses = {}
-    for instance_name in tqdm(meshes_to_process, file=utils.TqdmPrintEvery(), desc="Predicting Poses"):
+    for instance_name in tqdm(meshes_to_process, file=general_utils.TqdmPrintEvery(), desc="Predicting Poses"):
         print(instance_name)
         img_path = os.path.join(input_dir_img, instance_name + ".png")
         mesh_path = os.path.join(input_dir_mesh, instance_name + ".obj")
         mask = np.asarray(Image.open(img_path))[:,:,3] > 0
         with torch.no_grad():
-            mesh = utils.load_untextured_mesh(mesh_path, device)
+            mesh = general_utils.load_untextured_mesh(mesh_path, device)
 
             # this catches an error in occnet reconstructions where the output has no vertices
             if mesh.verts_packed().shape[0] == 0:
@@ -52,13 +52,13 @@ def correct_dists(uncorrected_pred_poses_dict, cfg, device):
     num_dists = cfg['brute_force_pose_est']['num_dists']
     corrected_pred_poses_dict = uncorrected_pred_poses_dict.copy()
 
-    for instance_name in tqdm(corrected_pred_poses_dict, file=utils.TqdmPrintEvery(), desc="correcting dists"):
+    for instance_name in tqdm(corrected_pred_poses_dict, file=general_utils.TqdmPrintEvery(), desc="correcting dists"):
         print(instance_name)
         img_path = os.path.join(input_dir_img, instance_name + ".png")
         mesh_path = os.path.join(input_dir_mesh, instance_name + ".obj")
         mask = np.asarray(Image.open(img_path))[:,:,3] > 0
         with torch.no_grad():
-            mesh = utils.load_untextured_mesh(mesh_path, device)
+            mesh = general_utils.load_untextured_mesh(mesh_path, device)
 
             # this catches an error in occnet reconstructions where the output has no vertices
             if mesh.verts_packed().shape[0] == 0:
@@ -94,13 +94,12 @@ def postprocess_data(pred_poses_dict, output_dir_mesh, cfg, device, recompute_me
     # postprocessing each mesh/img in dataset
     refiner = MeshRefiner(cfg, device)
     loss_info = {}
-    tqdm_out = utils.TqdmPrintEvery()
-    for instance_name in tqdm(pred_poses_dict, file=tqdm_out):
+    for instance_name in tqdm(pred_poses_dict, file=general_utils.TqdmPrintEvery()):
         curr_obj_path = os.path.join(output_dir_mesh, instance_name+".obj")
         if recompute_meshes or not os.path.exists(curr_obj_path):
             input_image = np.asarray(Image.open(os.path.join(input_dir_img, instance_name+".png")))
             with torch.no_grad():
-                mesh = utils.load_untextured_mesh(os.path.join(input_dir_mesh, instance_name+".obj"), device)
+                mesh = general_utils.load_untextured_mesh(os.path.join(input_dir_mesh, instance_name+".obj"), device)
                 
             # this catches an error in occnet reconstructions where the output has no vertices
             if mesh.verts_packed().shape[0] == 0:
@@ -147,7 +146,7 @@ if __name__ == "__main__":
         raise ValueError("batch_i cannot be greater than num_batches nor less than 1")
 
     device = torch.device("cuda:"+str(args.gpu))
-    cfg = utils.load_config(args.cfg_path, "configs/default.yaml")
+    cfg = general_utils.load_config(args.cfg_path, "configs/default.yaml")
     input_dir_img = cfg['dataset']['input_dir_img']
     input_dir_mesh = cfg['dataset']['input_dir_mesh']
 
