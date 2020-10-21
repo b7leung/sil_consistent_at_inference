@@ -1,0 +1,5 @@
+inherit_from: configs/final_refinement_params.yaml
+dataset:
+  input_dir_mesh: "/home/svcl-oowl/brandon/research/AtlasNet/data/pytorch_3d_render_recs/02958343"
+  input_dir_img: "data/input_images/pytorch3d_shapenet_renders/02958343/rgba"
+  gt_shapes_lst_path: "data/gt_shapes_path_lists/shapenet_02958343_gt_shapes.lst"
