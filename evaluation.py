@@ -18,10 +18,10 @@ from pytorch3d.renderer import look_at_view_transform
 from scipy import ndimage
 import cv2
 
-from utils import utils
+from utils import general_utils
 from utils import eval_utils
 from utils.brute_force_pose_est import brute_force_estimate_pose, get_iou
-import inside_mesh
+from utils.inside_mesh import inside_mesh
 # https://github.com/autonomousvision/occupancy_networks/blob/master/im2mesh/eval.py
 
 
@@ -73,7 +73,7 @@ def compute_iou_2d_given_pose(rec_mesh_torch, input_img, device, azim, elev, dis
     input_img_mask = torch.tensor(np.asarray(input_img))[:,:,3] > 0
     input_img_mask = center_and_resize_mask(input_img_mask)
     R, T = look_at_view_transform(dist, elev, azim) 
-    render = utils.render_mesh(rec_mesh_torch, R, T, device, img_size=input_img_mask.shape[0])[0]
+    render = general_utils.render_mesh(rec_mesh_torch, R, T, device, img_size=input_img_mask.shape[0])[0]
     render_mask = center_and_resize_mask(render[:,:,3] > 0)
 
     if render_mask is None:
@@ -139,8 +139,8 @@ def compute_iou_2d_multi(rec_mesh_torch, gt_mesh_torch, device, num_azims=8, num
     elevs = torch.repeat_interleave(torch.tensor([-45, 0, 45]), num_azims) # TODO: also add underneath elevs
     dists = torch.ones(num_azims*num_elevs) * 1
 
-    gt_renders = utils.batched_render(gt_mesh_torch, azims, elevs, dists, 8, device, False, 224, False)
-    rec_renders = utils.batched_render(rec_mesh_torch, azims, elevs, dists, 8, device, False, 224, False)
+    gt_renders = general_utils.batched_render(gt_mesh_torch, azims, elevs, dists, 8, device, False, 224, False)
+    rec_renders = general_utils.batched_render(rec_mesh_torch, azims, elevs, dists, 8, device, False, 224, False)
 
 
     iou_2d_scores = []
@@ -258,7 +258,7 @@ def evaluate(input_img_dict, reconstructions_dict, gt_shapes_dict, results_outpu
     #eval_log_path = results_output_path.replace(".pkl", ".log")
 
     # TODO: can this loop be parallelized?
-    for instance in tqdm(reconstructions_dict, file=utils.TqdmPrintEvery()):
+    for instance in tqdm(reconstructions_dict, file=general_utils.TqdmPrintEvery()):
         print(instance)
 
         rec_obj_path = reconstructions_dict[instance]
@@ -283,11 +283,11 @@ def evaluate(input_img_dict, reconstructions_dict, gt_shapes_dict, results_outpu
 
         input_img = Image.open(input_img_path)
         with torch.no_grad():
-            rec_mesh_torch = utils.load_untextured_mesh(rec_obj_path, device)
+            rec_mesh_torch = general_utils.load_untextured_mesh(rec_obj_path, device)
 
         gt_mesh = trimesh.load(gt_obj_path, process=False, force="mesh")
         with torch.no_grad():
-            gt_mesh_torch = utils.load_untextured_mesh(gt_obj_path, device)
+            gt_mesh_torch = general_utils.load_untextured_mesh(gt_obj_path, device)
 
         if not rec_mesh.is_watertight:
             instance_record["eval_warnings"].append("rec_obj_path is not watertight")
@@ -380,7 +380,7 @@ if __name__ == "__main__":
     #np.random.seed(0)
     device = torch.device("cuda:"+str(args.gpu))
     #device = torch.device("cpu")
-    cfg = utils.load_config(glob.glob(os.path.join(args.refined_meshes_dir, "*.yaml"))[0])
+    cfg = general_utils.load_config(glob.glob(os.path.join(args.refined_meshes_dir, "*.yaml"))[0])
 
     img_dir = cfg["dataset"]["input_dir_img"]
     input_img_dict = {str(filename).split('/')[-1].split('.')[0]:str(filename) for filename in list(Path(img_dir).rglob('*.png'))}

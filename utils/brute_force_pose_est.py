@@ -29,7 +29,7 @@ from pytorch3d.renderer import (
     SoftPhongShader
 )
 
-from utils import utils
+from utils import general_utils
 
 
 # given a mesh and a mask, finds position of the camera by brute force
@@ -50,7 +50,7 @@ def brute_force_estimate_pose(mesh, mask, num_azims, num_elevs, num_dists, devic
 
         # computing iou of mask and azimuth/elevation renders
         iou_calcs = []
-        batched_renders_iterable = utils.BatchedRenderIterable(mesh, azims, elevs, dists, batch_size, device)
+        batched_renders_iterable = general_utils.BatchedRenderIterable(mesh, azims, elevs, dists, batch_size, device)
         for render_batch in iter(batched_renders_iterable):
             for render in render_batch:
                 iou = get_normalized_iou(render.cpu().numpy(), mask, False)
@@ -74,7 +74,7 @@ def brute_force_estimate_pose(mesh, mask, num_azims, num_elevs, num_dists, devic
         azims = torch.ones(num_dists) * pred_azim
         elevs = torch.ones(num_dists) * pred_elev
         dists = torch.linspace(0.5, 3, num_dists)
-        renders = utils.batched_render(mesh, azims, elevs, dists, batch_size, device)
+        renders = general_utils.batched_render(mesh, azims, elevs, dists, batch_size, device)
         iou_calcs = []
         rendered_image_fits = []
         for i in range(renders.shape[0]):

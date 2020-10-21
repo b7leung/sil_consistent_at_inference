@@ -4,7 +4,7 @@
 import torch
 import numpy as np
 
-from im2mesh.utils.libkdtree import KDTree
+from utils.libkdtree import KDTree
 from evaluation import compute_iou_2d, compute_iou_2d_multi, compute_iou_2d_given_pose, compute_iou_3d, compute_chamfer_L1
 
 

@@ -3,7 +3,6 @@ notebooks/__pycache__
 *.swp
 data/
 __pycache__/
-stderr_test.py
 out/
 data_prep_tools/ManifoldPlus/
 data_prep_tools/pose_est_compare/
@@ -14,3 +13,11 @@ core.375
 data_prep_tools/occnet_test_set_lists/
 data_prep_tools/core.17
 notebooks/visualization_outputs
+build/
+*.pyc
+*.pt
+*.so
+*.o
+*.prof
+.nfs*
+*.cpp

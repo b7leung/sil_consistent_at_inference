@@ -12,8 +12,8 @@ rule compile
 
 
 
-build /home/svcl-oowl/brandon/research/sil_consistent_at_inference/build/temp.linux-x86_64-3.6/im2mesh/utils/libkdtree/pykdtree/kdtree.o: compile /home/svcl-oowl/brandon/research/sil_consistent_at_inference/im2mesh/utils/libkdtree/pykdtree/kdtree.c
-build /home/svcl-oowl/brandon/research/sil_consistent_at_inference/build/temp.linux-x86_64-3.6/im2mesh/utils/libkdtree/pykdtree/_kdtree_core.o: compile /home/svcl-oowl/brandon/research/sil_consistent_at_inference/im2mesh/utils/libkdtree/pykdtree/_kdtree_core.c
+build /home/svcl-oowl/brandon/research/test/sil_consistent_at_inference/build/temp.linux-x86_64-3.6/utils/libkdtree/pykdtree/kdtree.o: compile /home/svcl-oowl/brandon/research/test/sil_consistent_at_inference/utils/libkdtree/pykdtree/kdtree.c
+build /home/svcl-oowl/brandon/research/test/sil_consistent_at_inference/build/temp.linux-x86_64-3.6/utils/libkdtree/pykdtree/_kdtree_core.o: compile /home/svcl-oowl/brandon/research/test/sil_consistent_at_inference/utils/libkdtree/pykdtree/_kdtree_core.c
 
 
 
