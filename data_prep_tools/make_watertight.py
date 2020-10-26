@@ -11,7 +11,7 @@ import io
 
 
 # python make_watertight.py /home/svcl-oowl/brandon/research/sil_consistent_at_inference/data/misc/example_shapenet
-# python make_watertight.py /home/svcl-oowl/dataset/ShapeNetCore.v1/03001627
+# python make_watertight.py /home/svcl-oowl/dataset/ShapeNetCore.v1/03211117
 if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(description='goes through a folder of .obj meshes and creates watertight versions of it')

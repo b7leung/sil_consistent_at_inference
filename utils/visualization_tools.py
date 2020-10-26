@@ -5,7 +5,7 @@ import numpy as np
 from pytorch3d.renderer import look_at_view_transform
 import matplotlib.pyplot as plt
 
-from utils import utils
+from utils import general_utils
 
 
 def show_renders(renders_batch, masks=True):
@@ -35,14 +35,14 @@ def show_refinement_results(input_image, mesh_original, mesh_processed, pred_dis
   
 
     R, T = look_at_view_transform(pred_dist, pred_elev, pred_azim)
-    mesh_original_render = utils.render_mesh(mesh_original, R, T, device, img_size=img_size)
-    mesh_processed_render = utils.render_mesh(mesh_processed, R, T, device, img_size=img_size)
+    mesh_original_render = general_utils.render_mesh(mesh_original, R, T, device, img_size=img_size)
+    mesh_processed_render = general_utils.render_mesh(mesh_processed, R, T, device, img_size=img_size)
     
     # rendering processed mesh at poses other than the predicted pose
     novel_view_renders = []
     for i in range(num_novel_view):
         R, T = look_at_view_transform(pred_dist, pred_elev, pred_azim + ((i+1)*45))
-        novel_view_renders.append(utils.render_mesh(mesh_processed, R, T, device, img_size=img_size))
+        novel_view_renders.append(general_utils.render_mesh(mesh_processed, R, T, device, img_size=img_size))
     
     # visualizing
     num_columns = 3 + num_novel_view

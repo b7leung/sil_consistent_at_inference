@@ -101,8 +101,8 @@ def postprocess_data(pred_poses_dict, output_dir_mesh, cfg, device, recompute_me
             with torch.no_grad():
                 mesh = general_utils.load_untextured_mesh(os.path.join(input_dir_mesh, instance_name+".obj"), device)
                 
-            # this catches an error in occnet reconstructions where the output has no vertices
-            if mesh.verts_packed().shape[0] == 0:
+            # this catches an error in occnet reconstructions where the output has no or very few vertices
+            if mesh.verts_packed().shape[0] < 50:
                 with open(error_log_path, "a") as f: 
                     f.write("skipped refinement, no vertices -- {}\n".format(os.path.join(input_dir_mesh, instance_name+".obj")))
                     continue
