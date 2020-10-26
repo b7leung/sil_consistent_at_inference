@@ -8,6 +8,12 @@ The test dataset used can be downloaded here:
 https://drive.google.com/file/d/1_30nA9JKxA1uNXUXoCv8qzwhoGovWhgV/view?usp=sharing
 
 
+# Compilation notes:
+* to compile utils/libkdtree/pykdtree, need to be in occnet's mesh_funcspace env, then run "python utils/libkdtree/setup_kdtree.py build_ext --inplace" at project root dir
+* to compile utils/inside_mesh, need to be in standard env, then run "python utils/inside_mesh/setup.py build_ext --inplace"
+
+
+
 # Tools for preparing inputs to postprocessing
 The postprocessing algorithm expects segmented rgba 224x224 .png images, and .obj meshes with relatively few (few thousand) vertices. Otherwise, if there are too many vertices, it will take a long time per example (though, the meshes don't have to be exactly the same # of vertices). There are some scripts in this repo to help with preparing the img/mesh inputs:
 ### Converting Meshes from .off to .obj
