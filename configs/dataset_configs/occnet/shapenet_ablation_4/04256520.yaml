@@ -1,0 +1,5 @@
+inherit_from: configs/ablation_4_params.yaml
+dataset:
+  input_dir_mesh: "/home/svcl-oowl/brandon/research/occupancy_networks/out/pytorch3d_renders/04256520/generation/meshes"
+  input_dir_img: "data/input_images/pytorch3d_shapenet_renders/04256520/rgba"
+  gt_shapes_lst_path: "data/gt_shapes_path_lists/shapenet_04256520_gt_shapes.lst"

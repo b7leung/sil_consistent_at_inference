@@ -47,7 +47,7 @@ def vertex_symmetry_loss_batched(meshes, sym_plane, device):
 # image based symmetry loss
 # renders mesh at offsets about the plane of symmetry and computes a MSE loss in pixel space
 # silhouette should normally be true; only false for debug purposes
-def image_symmetry_loss(mesh, sym_plane, num_azim, device, render_silhouettes=True):
+def image_symmetry_loss(mesh, sym_plane, num_azim, device, render_silhouettes=True, dist=1.9):
     N = np.array([sym_plane])
     if np.linalg.norm(N) != 1:
         raise ValueError("sym_plane needs to be a unit normal")
@@ -58,7 +58,7 @@ def image_symmetry_loss(mesh, sym_plane, num_azim, device, render_silhouettes=Tr
     #azims = torch.linspace(0,90,num_azim+2)[1:-1].repeat(2)
     azims = torch.linspace(0+offset,90-offset,num_azim).repeat(2)
     elevs = torch.Tensor([-45 for i in range(num_azim)] + [45 for i in range(num_azim)] )
-    dists = torch.ones(num_views_on_half) * 1.9
+    dists = torch.ones(num_views_on_half) * dist
     R_half_1, T_half_1 = look_at_view_transform(dists, elevs, azims)
     R = [R_half_1]
 

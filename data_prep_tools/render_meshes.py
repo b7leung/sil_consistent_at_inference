@@ -9,7 +9,7 @@ import cv2
 import torch
 from pytorch3d.io import load_objs_as_meshes
 
-from ..utils import utils
+from ..utils import general_utils
 
 
 def render(INPUT_MESH_DIR, OUTPUT_RENDER_DIR, render_textureless, device, suffix=".obj", instances_list=None):
@@ -31,7 +31,7 @@ def render(INPUT_MESH_DIR, OUTPUT_RENDER_DIR, render_textureless, device, suffix
         
     obj_paths = list(Path(INPUT_MESH_DIR).rglob('*{}'.format(suffix)))
 
-    for model_path in tqdm(obj_paths, file=utils.TqdmPrintEvery()):
+    for model_path in tqdm(obj_paths, file=general_utils.TqdmPrintEvery()):
         model_name = str(model_path).split('/')[-2]
         if instances_list is None or model_name in instances_list:
             # 0.,  45.,  90., 135., 180., 225., 270., 315.
@@ -41,15 +41,15 @@ def render(INPUT_MESH_DIR, OUTPUT_RENDER_DIR, render_textureless, device, suffix
             dists = torch.ones(num_azims) * 1
 
             if render_textureless:
-                mesh = utils.load_untextured_mesh(model_path, device)
-                renders = utils.batched_render(mesh, azims, elevs, dists, batch_size, device, False, img_size, False)
+                mesh = general_utils.load_untextured_mesh(model_path, device)
+                renders = general_utils.batched_render(mesh, azims, elevs, dists, batch_size, device, False, img_size, False)
             else:
                 try:
                     mesh = load_objs_as_meshes([model_path], device=device)
-                    renders = utils.batched_render(mesh, azims, elevs, dists, batch_size, device, False, img_size, False)
+                    renders = general_utils.batched_render(mesh, azims, elevs, dists, batch_size, device, False, img_size, False)
                 except ValueError:
-                    mesh = utils.load_untextured_mesh(model_path, device)
-                    renders = utils.batched_render(mesh, azims, elevs, dists, batch_size, device, False, img_size, False)
+                    mesh = general_utils.load_untextured_mesh(model_path, device)
+                    renders = general_utils.batched_render(mesh, azims, elevs, dists, batch_size, device, False, img_size, False)
 
             for i, render in enumerate(renders):
                 
@@ -74,6 +74,8 @@ def render(INPUT_MESH_DIR, OUTPUT_RENDER_DIR, render_textureless, device, suffix
 #  python -m sil_consistent_at_inference.data_prep_tools.render_meshes /home/svcl-oowl/dataset/shapenet_test/03001627 /home/svcl-oowl/brandon/research/sil_consistent_at_inference/data/pytorch3d_shapenet_renders_test/03001627 --suffix model_watertight.obj --textureless --instances_list /home/svcl-oowl/brandon/research/sil_consistent_at_inference/data_prep_tools/occnet_test_set_lists/03001627_test.lst
 
 #  python -m sil_consistent_at_inference.data_prep_tools.render_meshes /home/svcl-oowl/dataset/ShapeNetCore.v1/03001627 /home/svcl-oowl/brandon/research/sil_consistent_at_inference/data/pytorch3d_shapenet_renders/03001627 --suffix model_watertight.obj --textureless --instances_list /home/svcl-oowl/brandon/research/sil_consistent_at_inference/data_prep_tools/occnet_test_set_lists/03001627_test.lst
+
+#  python -m sil_consistent_at_inference.data_prep_tools.render_meshes /home/svcl-oowl/dataset/ShapeNetCore.v1/02933112 /home/svcl-oowl/brandon/research/sil_consistent_at_inference/data/input_images/pytorch3d_shapenet_renders/02933112_sym --suffix model_watertight.obj --textureless --instances_list /home/svcl-oowl/brandon/research/sil_consistent_at_inference/data_prep_tools/occnet_test_set_lists/02933112_sym.lst
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Render a folder of meshes')

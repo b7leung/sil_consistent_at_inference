@@ -36,11 +36,11 @@ class MeshRefiner():
         self.semantic_dis_lam = self.cfg["training"]["semantic_dis_lam"]
 
 
-    def setup_generator(self):
+    def setup_generator(self, num_verts):
         # setting generator deformation network
         deform_net_type = self.cfg["semantic_dis_training"]["deform_net_type"]
         if deform_net_type == "pointnet":
-            deform_net = DeformationNetwork(self.cfg, self.cfg["semantic_dis_training"]["mesh_num_verts"], self.device)
+            deform_net = DeformationNetwork(self.cfg, num_verts, self.device)
         elif deform_net_type == "gcn":
             deform_net = DeformationNetworkGraphConvolutional(self.cfg, self.cfg["semantic_dis_training"]["mesh_num_verts"], self.device)
         elif deform_net_type == "gcn_full":
@@ -91,7 +91,7 @@ class MeshRefiner():
 
         # prep networks & optimizer
         semantic_dis_net = self.setup_discriminator()
-        deform_net = self.setup_generator()
+        deform_net = self.setup_generator(verts_in.shape[1])
         optimizer = optim.Adam(deform_net.parameters(), lr=self.lr)
 
         # optimizing  
