@@ -13,6 +13,7 @@ from deformation.deformation_net_graph_convolutional_full import DeformationNetw
 from deformation.semantic_discriminator_net_renders import RendersSemanticDiscriminatorNetwork
 from deformation.semantic_discriminator_net_points import PointsSemanticDiscriminatorNetwork
 from deformation.forward_pass import batched_forward_pass
+import deformation.losses as def_losses
 
 
 class MeshRefiner():
@@ -125,7 +126,19 @@ class MeshRefiner():
                 lowest_loss = total_loss.item()
                 best_deformed_mesh = deformed_mesh
 
+        refinement_info = {"loss_info": loss_info}
+        if self.cfg["training"]["vertex_asym"]:
+            deformation_output, sym_conf_scores = deform_net(deform_net_input)
+            refinement_info["sym_conf_scores"] = sym_conf_scores.detach().cpu()
+
+            deformation_output = deformation_output.reshape((-1,3))
+            mesh = deform_net_input["mesh"].to(self.device)
+            deformed_mesh = mesh.offset_verts(deformation_output)
+            sym_plane_normal = [0,0,1]
+            _, img_sym_loss_debug_imgs = def_losses.image_symmetry_loss(deformed_mesh, sym_plane_normal, self.cfg["training"]["img_sym_num_azim"], self.device, sym_conf_scores)
+            refinement_info["img_sym_loss_debug_imgs"] = img_sym_loss_debug_imgs
+
         if record_intermediate:
-            return deformed_meshes, loss_info
+            return deformed_meshes, refinement_info
         else:
-            return best_deformed_mesh, loss_info
+            return best_deformed_mesh, refinement_info

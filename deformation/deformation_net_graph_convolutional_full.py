@@ -17,6 +17,9 @@ class DeformationNetworkGraphConvolutionalFull(nn.Module):
         super().__init__()
         self.device = device
         self.num_vertices = num_vertices
+        
+        self.asym = cfg["training"]["vertex_asym"]
+
         hidden_dim = 256
 
         self.backbone, self.feat_dims = build_backbone("resnet50")
@@ -37,6 +40,16 @@ class DeformationNetworkGraphConvolutionalFull(nn.Module):
         self.gconvs.append(pytorch3d.ops.GraphConv(input_dim=hidden_dim, output_dim=hidden_dim))
 
         self.vert_offset = nn.Linear(hidden_dim, 3)
+        #self.asym_conf = nn.Linear(hidden_dim, 1)
+
+        self.asym_conf = nn.Sequential(
+            nn.Linear(hidden_dim, hidden_dim),
+            nn.ReLU(),
+            nn.Linear(hidden_dim, 64),
+            nn.ReLU(),
+            nn.Linear(64, 32),
+            nn.ReLU(),
+            nn.Linear(32, 1))
 
 
     def forward(self, input_batch):
@@ -70,10 +83,15 @@ class DeformationNetworkGraphConvolutionalFull(nn.Module):
             batch_vertex_features = F.relu(self.gconvs[i](batch_vertex_features, mesh_batch.edges_packed()))
             # TODO: also add original coordinate?
 
-        delta_v = (self.vert_offset(batch_vertex_features))
+        delta_v = self.vert_offset(batch_vertex_features)
         #delta_v = torch.tanh(self.vert_offset(batch_vertex_features))
 
-        return delta_v
+        if self.asym:
+            #asym_conf_scores = F.softplus(self.asym_conf(batch_vertex_features))
+            asym_conf_scores = torch.sigmoid(self.asym_conf(batch_vertex_features))
+            return [delta_v, asym_conf_scores]
+        else:
+            return delta_v
 
 
 

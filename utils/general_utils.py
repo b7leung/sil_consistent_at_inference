@@ -178,12 +178,13 @@ def load_untextured_mesh(mesh_path, device):
 # for rendering a single image
 #TODO: double check params for silhouette case
 # https://github.com/facebookresearch/pytorch3d/blob/master/docs/tutorials/camera_position_optimization_with_differentiable_rendering.ipynb
-def render_mesh(mesh, R, T, device, img_size=512, silhouette=False, soft_flat_shader=False):
+def render_mesh(mesh, R, T, device, img_size=512, silhouette=False, soft_flat_shader=False, custom_lights=None):
     cameras = OpenGLPerspectiveCameras(device=device, R=R, T=T)
 
 
     if silhouette:
         blend_params = BlendParams(sigma=1e-4, gamma=1e-4)
+
         raster_settings = RasterizationSettings(
             image_size=img_size, 
             blur_radius=np.log(1. / 1e-4 - 1.) * blend_params.sigma, 
@@ -202,7 +203,10 @@ def render_mesh(mesh, R, T, device, img_size=512, silhouette=False, soft_flat_sh
             blur_radius=0.0, 
             faces_per_pixel=1, 
         )
-        lights = PointLights(device=device, location=[[0.0, 5.0, -10.0]])
+        if custom_lights is None:
+            lights = PointLights(device=device, location=[[0.0, 5.0, -10.0]])
+        else:
+            lights = custom_lights
 
         if soft_flat_shader:
 

@@ -1,7 +1,7 @@
 
 import torch
 from torch.nn import functional as F
-from pytorch3d.renderer import look_at_view_transform
+from pytorch3d.renderer import look_at_view_transform, TexturesVertex
 from pytorch3d.loss import mesh_laplacian_smoothing, mesh_normal_consistency
 
 from utils import general_utils
@@ -67,15 +67,26 @@ def batched_forward_pass(cfg, device, deform_net, semantic_dis_net, input_batch,
 
     # deforming mesh
     # TODO: clean up double .to()
-    deformation_output = deform_net(input_batch)
     mesh_batch = input_batch["mesh"].to(device)
-    if cfg["model"]["output_delta_V"]:
-        deformation_output = deformation_output.reshape((-1,3))
-        deformed_meshes = mesh_batch.offset_verts(deformation_output)
+
+    if cfg["training"]["vertex_asym"]:
+        deformation_output, asym_conf_scores = deform_net(input_batch)
+        # mesh_batch.textures = TexturesVertex(verts_features = torch.tensor(mesh_rgb_verts, dtype=torch.float32).unsqueeze(0).to(device))
+        # TODO: generalize this to be batched instead of unsqueeze
+        #mesh_batch.textures = TexturesVertex(verts_features=asym_conf_scores.unsqueeze(0))
     else:
-        batch_size = deformation_output.shape[0]
-        deformation_output = deformation_output.reshape((batch_size,-1,3))
-        deformed_meshes = mesh_batch.update_padded(deformation_output)
+        deformation_output = deform_net(input_batch)
+        asym_conf_scores = None
+        
+    #if cfg["model"]["output_delta_V"]:
+
+    deformation_output = deformation_output.reshape((-1,3))
+    deformed_meshes = mesh_batch.offset_verts(deformation_output)
+
+    #else:
+    #    batch_size = deformation_output.shape[0]
+    #    deformation_output = deformation_output.reshape((batch_size,-1,3))
+    #    deformed_meshes = mesh_batch.update_padded(deformation_output)
 
     # computing network's losses
     loss_dict = {}
@@ -124,12 +135,12 @@ def batched_forward_pass(cfg, device, deform_net, semantic_dis_net, input_batch,
 
         sym_plane_normal = [0,0,1] # TODO: make this generalizable to other classes
         if cfg["training"]["img_sym_lam"] > 0:
-            loss_dict["img_sym_loss"] = def_losses.image_symmetry_loss_batched(deformed_meshes, sym_plane_normal, cfg["training"]["img_sym_num_azim"], device)
+            loss_dict["img_sym_loss"] = def_losses.image_symmetry_loss_batched(deformed_meshes, sym_plane_normal, cfg["training"]["img_sym_num_azim"], device, asym_conf_scores)
         else:
             loss_dict["img_sym_loss"] = torch.tensor(0).to(device)
 
         if cfg["training"]["vertex_sym_lam"] > 0:
-            loss_dict["vertex_sym_loss"] = def_losses.vertex_symmetry_loss_batched(deformed_meshes, sym_plane_normal, device)
+            loss_dict["vertex_sym_loss"] = def_losses.vertex_symmetry_loss_batched(deformed_meshes, sym_plane_normal, device, asym_conf_scores)
         else:
             loss_dict["vertex_sym_loss"] = torch.tensor(0).to(device)
 

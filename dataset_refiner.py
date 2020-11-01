@@ -93,7 +93,7 @@ def postprocess_data(pred_poses_dict, output_dir_mesh, cfg, device, recompute_me
 
     # postprocessing each mesh/img in dataset
     refiner = MeshRefiner(cfg, device)
-    loss_info = {}
+    refinements_info = {}
     for instance_name in tqdm(pred_poses_dict, file=general_utils.TqdmPrintEvery()):
         curr_obj_path = os.path.join(output_dir_mesh, instance_name+".obj")
         if recompute_meshes or not os.path.exists(curr_obj_path):
@@ -111,11 +111,11 @@ def postprocess_data(pred_poses_dict, output_dir_mesh, cfg, device, recompute_me
             pred_elev = pred_poses_dict[instance_name]['elev']
             pred_azim = pred_poses_dict[instance_name]['azim']
 
-            curr_refined_mesh, curr_loss_info = refiner.refine_mesh(mesh, input_image, pred_dist, pred_elev, pred_azim)
+            curr_refined_mesh, refinement_info = refiner.refine_mesh(mesh, input_image, pred_dist, pred_elev, pred_azim)
             save_obj(curr_obj_path, curr_refined_mesh.verts_packed(), curr_refined_mesh.faces_packed())
-            loss_info[instance_name] = curr_loss_info
+            refinements_info[instance_name] = refinement_info
 
-    return loss_info
+    return refinements_info
 
 
 # https://stackoverflow.com/questions/2130016/splitting-a-list-into-n-parts-of-approximately-equal-length
@@ -185,5 +185,5 @@ if __name__ == "__main__":
     # postprocessing meshes
     print("\nPerforming optimization-based postprocessing on mesh reconstructions...\n")
     # TODO: loss info is not preserved if loaded twice
-    loss_info = postprocess_data(pred_poses_dict, output_dir_mesh, cfg, device, args.recompute_meshes)
-    pickle.dump(loss_info, open(os.path.join(output_dir_mesh, "loss_info.p"), "wb"))
+    refinements_info = postprocess_data(pred_poses_dict, output_dir_mesh, cfg, device, args.recompute_meshes)
+    pickle.dump(refinements_info, open(os.path.join(output_dir_mesh, "refinements_info.p"), "wb"))

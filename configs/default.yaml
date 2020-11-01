@@ -34,6 +34,7 @@ training:
 
   sil_lam: 10 # silouette loss. [5*]
   vertex_sym_lam: 0.0 # vertex-based symmetry loss [0.1*]
+  vertex_asym: false
 
   l2_lam: 0 # l2 loss on delta v  [1*]
   lap_smoothness_lam: 10  # laplacian smoothing loss [10*]
