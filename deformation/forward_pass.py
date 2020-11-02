@@ -135,12 +135,14 @@ def batched_forward_pass(cfg, device, deform_net, semantic_dis_net, input_batch,
 
         sym_plane_normal = [0,0,1] # TODO: make this generalizable to other classes
         if cfg["training"]["img_sym_lam"] > 0:
-            loss_dict["img_sym_loss"] = def_losses.image_symmetry_loss_batched(deformed_meshes, sym_plane_normal, cfg["training"]["img_sym_num_azim"], device, asym_conf_scores)
+            loss_dict["img_sym_loss"] = def_losses.image_symmetry_loss_batched(deformed_meshes, sym_plane_normal, cfg["training"]["img_sym_num_azim"], device,
+                                                                               asym_conf_scores, cfg["training"]["img_sym_bias"])
         else:
             loss_dict["img_sym_loss"] = torch.tensor(0).to(device)
 
         if cfg["training"]["vertex_sym_lam"] > 0:
-            loss_dict["vertex_sym_loss"] = def_losses.vertex_symmetry_loss_batched(deformed_meshes, sym_plane_normal, device, asym_conf_scores)
+            loss_dict["vertex_sym_loss"] = def_losses.vertex_symmetry_loss_batched(deformed_meshes, sym_plane_normal, device,
+                                                                                   asym_conf_scores, cfg["training"]["vertex_sym_bias"])
         else:
             loss_dict["vertex_sym_loss"] = torch.tensor(0).to(device)
 

@@ -22,3 +22,4 @@ build/
 .nfs*
 *.cpp
 data_prep_tools/core.16
+.~*.ipynb

@@ -15,7 +15,7 @@ from utils import general_utils
 # args:
 #   Sym_plane: list of 3 numbers
 # https://math.stackexchange.com/questions/693414/reflection-across-the-plane
-def vertex_symmetry_loss(mesh, sym_plane, device, asym_conf_scores=False):
+def vertex_symmetry_loss(mesh, sym_plane, device, asym_conf_scores=False, sym_bias=0.005):
     N = np.array([sym_plane])
     if np.linalg.norm(N) != 1:
         raise ValueError("sym_plane needs to be a unit normal")
@@ -30,12 +30,13 @@ def vertex_symmetry_loss(mesh, sym_plane, device, asym_conf_scores=False):
     distances, indices = nbrs.kneighbors(sym_points.detach().cpu())
     #avg_sym_loss = F.mse_loss(sym_points, torch.squeeze(mesh_verts[indices],1), reduction='sum') # not used
     #avg_sym_loss = F.l1_loss(sym_points, torch.squeeze(mesh_verts[indices],1), reduction='sum')
-    nn_dists = torch.unsqueeze(torch.sum(F.l1_loss(sym_points, torch.squeeze(mesh_verts[indices],1), reduction='none'), 1),1)
+    #nn_dists = torch.unsqueeze(torch.sum(F.l1_loss(sym_points, torch.squeeze(mesh_verts[indices],1), reduction='none'), 1),1)
+    nn_dists = torch.unsqueeze(torch.sum(F.mse_loss(sym_points, torch.squeeze(mesh_verts[indices],1), reduction='none'), 1),1)
 
-    sym_bias = 0.005 #0.01
     if asym_conf_scores is not None:
         #avg_sym_loss = torch.mean(0.5*(torch.log(asym_conf_scores**2)) + torch.div(1,2*(asym_conf_scores**2))*nn_dists)
-        avg_sym_loss = torch.mean(-torch.log(asym_conf_scores)*sym_bias + (asym_conf_scores*nn_dists))
+        #avg_sym_loss = torch.mean(-torch.log(asym_conf_scores)*sym_bias + ((asym_conf_scores)*nn_dists))
+        avg_sym_loss = torch.mean(asym_conf_scores*sym_bias + ((torch.div(1,torch.exp(asym_conf_scores)))*nn_dists))
     else:
         avg_sym_loss = torch.mean(nn_dists)
     return avg_sym_loss
@@ -43,10 +44,10 @@ def vertex_symmetry_loss(mesh, sym_plane, device, asym_conf_scores=False):
 
 # naive batched version of vertex symmetry loss
 # assumes all meshes use the same sym_plane
-def vertex_symmetry_loss_batched(meshes, sym_plane, device, asym_conf_scores=None):
+def vertex_symmetry_loss_batched(meshes, sym_plane, device, asym_conf_scores=None, sym_bias=0.005):
     total_vtx_sym_loss = 0
     for mesh in meshes:
-        curr_sym_loss = vertex_symmetry_loss(mesh, sym_plane, device, asym_conf_scores)
+        curr_sym_loss = vertex_symmetry_loss(mesh, sym_plane, device, asym_conf_scores=asym_conf_scores, sym_bias=sym_bias)
         total_vtx_sym_loss += curr_sym_loss
     avg_vtx_sym_loss = total_vtx_sym_loss / len(meshes)
     return avg_vtx_sym_loss
@@ -55,7 +56,7 @@ def vertex_symmetry_loss_batched(meshes, sym_plane, device, asym_conf_scores=Non
 # image based symmetry loss
 # renders mesh at offsets about the plane of symmetry and computes a MSE loss in pixel space
 # silhouette should normally be true; only false for debug purposes
-def image_symmetry_loss(mesh, sym_plane, num_azim, device, asym_conf_scores=None, render_silhouettes=True, dist=1.9):
+def image_symmetry_loss(mesh, sym_plane, num_azim, device, asym_conf_scores=None, sym_bias=0.005, render_silhouettes=True, dist=1.9):
     N = np.array([sym_plane])
     if np.linalg.norm(N) != 1:
         raise ValueError("sym_plane needs to be a unit normal")
@@ -106,16 +107,14 @@ def image_symmetry_loss(mesh, sym_plane, num_azim, device, asym_conf_scores=None
 
     # calculating loss. 
     sym_loss = 0
-    sym_bias = 1
     for sym_triple in sym_triples:
         if asym_conf_scores is None:
             sym_loss += F.mse_loss(sym_triple[1], sym_triple[2])
         else:
-            #sym_loss += F.mse_loss(sym_triple[1], sym_triple[2])
-            #print(sym_triple[3])
-            #print(torch.mean((-torch.log(sym_triple[3])*sym_bias) + (F.mse_loss(sym_triple[1], sym_triple[2], reduction="none") * sym_triple[3])))
+            #sym_loss += torch.mean((-torch.log(sym_triple[3])*sym_bias) + (F.mse_loss(sym_triple[1], sym_triple[2], reduction="none") * (sym_triple[3])))
+            #sym_loss += torch.mean((-torch.log(sym_triple[3])*sym_bias) + (F.l1_loss(sym_triple[1], sym_triple[2], reduction="none") * (sym_triple[3])))
+            sym_loss += torch.mean((sym_triple[3]*sym_bias) + ((torch.div(1,torch.exp(sym_triple[3]))) * F.mse_loss(sym_triple[1], sym_triple[2], reduction="none")))
 
-            sym_loss += torch.mean((-torch.log(sym_triple[3])*sym_bias) + (F.mse_loss(sym_triple[1], sym_triple[2], reduction="none") * sym_triple[3]))
     sym_loss = sym_loss / num_views_on_half
 
     return sym_loss, sym_triples
@@ -123,10 +122,10 @@ def image_symmetry_loss(mesh, sym_plane, num_azim, device, asym_conf_scores=None
 
 # naive batched version of image symmetry loss; averages image symmetry loss for each mesh in batch
 # assumes all meshes use the same sym_plane
-def image_symmetry_loss_batched(meshes, sym_plane, num_azim, device, asym_conf_scores=None, render_silhouettes=True):
+def image_symmetry_loss_batched(meshes, sym_plane, num_azim, device, asym_conf_scores=None, sym_bias=0.005, render_silhouettes=True):
     total_img_sym_loss = 0
     for mesh in meshes:
-        curr_sym_loss, _ = image_symmetry_loss(mesh, sym_plane, num_azim, device, asym_conf_scores, render_silhouettes)
+        curr_sym_loss, _ = image_symmetry_loss(mesh, sym_plane, num_azim, device, asym_conf_scores=asym_conf_scores, sym_bias=sym_bias, render_silhouettes=render_silhouettes)
         total_img_sym_loss += curr_sym_loss
     avg_img_sym_loss = total_img_sym_loss / len(meshes)
     return avg_img_sym_loss

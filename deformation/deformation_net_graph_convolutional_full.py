@@ -88,7 +88,9 @@ class DeformationNetworkGraphConvolutionalFull(nn.Module):
 
         if self.asym:
             #asym_conf_scores = F.softplus(self.asym_conf(batch_vertex_features))
-            asym_conf_scores = torch.sigmoid(self.asym_conf(batch_vertex_features))
+            #asym_conf_scores = F.relu(self.asym_conf(batch_vertex_features))
+            #asym_conf_scores = torch.sigmoid(self.asym_conf(batch_vertex_features))
+            asym_conf_scores = self.asym_conf(batch_vertex_features)
             return [delta_v, asym_conf_scores]
         else:
             return delta_v

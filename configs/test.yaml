@@ -1,8 +1,3 @@
-dataset:
-  input_dir_mesh: "data/onet_chair_shapent_no_DA_simplified" # Path to folder with meshes to postprocess.
-  input_dir_img: "data/img_shapenet_chair" # Path to folder with images for meshes.
-  gt_shapes_lst_path: "data/gt_shapes_path_lists/shapenet_chair_gt_shapes.lst"
-
 
 # parameters for test-time optimization
 refinement:
@@ -15,9 +10,11 @@ training:
 
   img_sym_num_azim: 3 #[3*]
   img_sym_lam: 75 # image-based symmetry loss [75*]
+  img_sym_bias: 0.0005
 
   sil_lam: 10 # silouette loss. [10*]
-  vertex_sym_lam: 0 # vertex-based symmetry loss [100*]
+  vertex_sym_lam: 100 # vertex-based symmetry loss [100*]
+  vertex_sym_bias: 0.0005
   
   vertex_asym: true
 
@@ -27,7 +24,5 @@ training:
 
 # parameters for the generator and discriminator
 semantic_dis_training:
-  #dis_weight_path: "out/2020_09_21--07_10_21_job5/semantic_dis_net_weights_99.pt"
-  #gen_weight_path: "out/2020_09_21--07_10_21_job5/deform_net_weights_99.pt"
   dis_weight_path: ""
   gen_weight_path: ""
