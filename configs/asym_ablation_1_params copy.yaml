@@ -1,7 +1,8 @@
+# this ablation study turns symmetry off
 
 # parameters for test-time optimization
 refinement:
-  num_iterations: 400
+  num_iterations: 400 #350
   learning_rate: 0.00007
 
 # loss function parameters
@@ -10,16 +11,16 @@ training:
 
   img_sym_num_azim: 3 #[3*]
   img_sym_lam: 80 # image-based symmetry loss [75*]
-  img_sym_bias: 0.0005
+  img_sym_bias: 0.0000005
 
   sil_lam: 10 # silouette loss. [10*]
-  vertex_sym_lam: 20 # vertex-based symmetry loss [0.0*]
-  vertex_sym_bias: 0.0005
+  vertex_sym_lam: 115 # vertex-based symmetry loss [100*]
+  vertex_sym_bias: 0.0000005
   
   vertex_asym: true
-  
+
   l2_lam: 100 # l2 loss on delta v  [100*]
   lap_smoothness_lam: 10  # laplacian smoothing loss [10*]
   normal_consistency_lam: 10 # normal consistency loss [10*]
-  
+
 

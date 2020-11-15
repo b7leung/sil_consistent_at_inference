@@ -9,12 +9,12 @@ training:
   semantic_dis_lam: 0 # semantic discriminator loss weight 
 
   img_sym_num_azim: 3 #[3*]
-  img_sym_lam: 80 # image-based symmetry loss [75*]
-  img_sym_bias: 0.0005
+  img_sym_lam: 75 # image-based symmetry loss [75*]
+  img_sym_bias: 0.0
 
   sil_lam: 10 # silouette loss. [10*]
-  vertex_sym_lam: 20 # vertex-based symmetry loss [0.0*]
-  vertex_sym_bias: 0.0005
+  vertex_sym_lam: 5 # vertex-based symmetry loss [0.0*]
+  vertex_sym_bias: 0.0
   
   vertex_asym: true
   

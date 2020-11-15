@@ -61,9 +61,11 @@ def compute_sem_dis_logits(meshes_batch, semantic_discriminator_net, device, cfg
 # computes a forward pass through a given deformation network and semantic discriminator network
 # returns the deformed mesh and a (optionally) dict of (unweighed, raw) computed losses
 # Note that mask_batch is not necessary (can be None) when compute_losses=False, since it is only used to compute silhouette loss
+# NOTE: forward_pass_info is still tracked and in gpu
 def batched_forward_pass(cfg, device, deform_net, semantic_dis_net, input_batch, compute_losses=True):
     # TODO: fix this
     real_labels_dist_gen = torch.distributions.Uniform(torch.tensor([1.0]), torch.tensor([1.0]))
+    forward_pass_info = {}
 
     # deforming mesh
     # TODO: clean up double .to()
@@ -74,6 +76,7 @@ def batched_forward_pass(cfg, device, deform_net, semantic_dis_net, input_batch,
         # mesh_batch.textures = TexturesVertex(verts_features = torch.tensor(mesh_rgb_verts, dtype=torch.float32).unsqueeze(0).to(device))
         # TODO: generalize this to be batched instead of unsqueeze
         #mesh_batch.textures = TexturesVertex(verts_features=asym_conf_scores.unsqueeze(0))
+        forward_pass_info["asym_conf_scores"] = asym_conf_scores
     else:
         deformation_output = deform_net(input_batch)
         asym_conf_scores = None
@@ -135,8 +138,9 @@ def batched_forward_pass(cfg, device, deform_net, semantic_dis_net, input_batch,
 
         sym_plane_normal = [0,0,1] # TODO: make this generalizable to other classes
         if cfg["training"]["img_sym_lam"] > 0:
-            loss_dict["img_sym_loss"] = def_losses.image_symmetry_loss_batched(deformed_meshes, sym_plane_normal, cfg["training"]["img_sym_num_azim"], device,
-                                                                               asym_conf_scores, cfg["training"]["img_sym_bias"])
+            loss_dict["img_sym_loss"], sym_img_sets = def_losses.image_symmetry_loss_batched(deformed_meshes, sym_plane_normal, cfg["training"]["img_sym_num_azim"], device,
+                                                                                             asym_conf_scores, cfg["training"]["img_sym_bias"])
+            forward_pass_info["img_sym_loss_debug_imgs"] = sym_img_sets
         else:
             loss_dict["img_sym_loss"] = torch.tensor(0).to(device)
 
@@ -146,5 +150,5 @@ def batched_forward_pass(cfg, device, deform_net, semantic_dis_net, input_batch,
         else:
             loss_dict["vertex_sym_loss"] = torch.tensor(0).to(device)
 
-    return loss_dict, deformed_meshes
+    return loss_dict, deformed_meshes, forward_pass_info
 

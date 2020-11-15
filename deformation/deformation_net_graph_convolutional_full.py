@@ -37,7 +37,7 @@ class DeformationNetworkGraphConvolutionalFull(nn.Module):
         self.gconvs.append(pytorch3d.ops.GraphConv(input_dim=hidden_dim, output_dim=hidden_dim))
         self.gconvs.append(pytorch3d.ops.GraphConv(input_dim=hidden_dim, output_dim=hidden_dim))
         self.gconvs.append(pytorch3d.ops.GraphConv(input_dim=hidden_dim, output_dim=hidden_dim))
-        self.gconvs.append(pytorch3d.ops.GraphConv(input_dim=hidden_dim, output_dim=hidden_dim))
+        #self.gconvs.append(pytorch3d.ops.GraphConv(input_dim=hidden_dim, output_dim=hidden_dim))
 
         self.vert_offset = nn.Linear(hidden_dim, 3)
         #self.asym_conf = nn.Linear(hidden_dim, 1)
@@ -89,8 +89,8 @@ class DeformationNetworkGraphConvolutionalFull(nn.Module):
         if self.asym:
             #asym_conf_scores = F.softplus(self.asym_conf(batch_vertex_features))
             #asym_conf_scores = F.relu(self.asym_conf(batch_vertex_features))
-            #asym_conf_scores = torch.sigmoid(self.asym_conf(batch_vertex_features))
-            asym_conf_scores = self.asym_conf(batch_vertex_features)
+            asym_conf_scores = torch.sigmoid(self.asym_conf(batch_vertex_features))
+            #asym_conf_scores = self.asym_conf(batch_vertex_features)
             return [delta_v, asym_conf_scores]
         else:
             return delta_v

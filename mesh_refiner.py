@@ -79,7 +79,7 @@ class MeshRefiner():
     # record_intermediate will return a list of meshes
     # rgba_image (np int array, 224 x 224 x 4, rgba, 0-255)
     # TODO: fix mesh (currently, needs to already be in device)
-    def refine_mesh(self, mesh, rgba_image, pred_dist, pred_elev, pred_azim, record_intermediate=False):
+    def refine_mesh(self, mesh, rgba_image, pred_dist, pred_elev, pred_azim, record_intermediate=False, record_debug=False):
 
         # prep inputs used during training (making a batch of size one)
         image = rgba_image[:,:,:3]
@@ -100,13 +100,14 @@ class MeshRefiner():
         deformed_meshes = []
         lowest_loss = None
         best_deformed_mesh = None
+        best_refinement_info = {}
 
         for i in tqdm(range(self.num_iterations)):
             deform_net.train()
             semantic_dis_net.eval()
             optimizer.zero_grad()
 
-            loss_dict, deformed_mesh = batched_forward_pass(self.cfg, self.device, deform_net, semantic_dis_net, deform_net_input, compute_losses=True)
+            loss_dict, deformed_mesh, forward_pass_info = batched_forward_pass(self.cfg, self.device, deform_net, semantic_dis_net, deform_net_input, compute_losses=True)
 
             # optimization step on weighted losses
             total_loss = sum([loss_dict[loss_name] * self.cfg['training'][loss_name.replace("loss", "lam")] for loss_name in loss_dict])
@@ -125,20 +126,37 @@ class MeshRefiner():
             if lowest_loss is None or total_loss.item() < lowest_loss:
                 lowest_loss = total_loss.item()
                 best_deformed_mesh = deformed_mesh
+                if record_debug:
+                    best_refinement_info = forward_pass_info
 
-        refinement_info = {"loss_info": loss_info}
-        if self.cfg["training"]["vertex_asym"]:
-            deformation_output, sym_conf_scores = deform_net(deform_net_input)
-            refinement_info["sym_conf_scores"] = sym_conf_scores.detach().cpu()
+        best_refinement_info["loss_info"] = loss_info
 
-            deformation_output = deformation_output.reshape((-1,3))
-            mesh = deform_net_input["mesh"].to(self.device)
-            deformed_mesh = mesh.offset_verts(deformation_output)
-            sym_plane_normal = [0,0,1]
-            _, img_sym_loss_debug_imgs = def_losses.image_symmetry_loss(deformed_mesh, sym_plane_normal, self.cfg["training"]["img_sym_num_azim"], self.device, sym_conf_scores)
-            refinement_info["img_sym_loss_debug_imgs"] = img_sym_loss_debug_imgs
+        # moving refinement info stuff to cpu
+        if "asym_conf_scores" in best_refinement_info:
+            best_refinement_info["asym_conf_scores"] = best_refinement_info["asym_conf_scores"].detach().cpu()
+        if "img_sym_loss_debug_imgs" in best_refinement_info:
+            for i in range(len(best_refinement_info["img_sym_loss_debug_imgs"])):
+                for j in range(len(best_refinement_info["img_sym_loss_debug_imgs"][i])):
+                    for k in range(len(best_refinement_info["img_sym_loss_debug_imgs"][i][j])):
+                        best_refinement_info["img_sym_loss_debug_imgs"][i][j][k] = best_refinement_info["img_sym_loss_debug_imgs"][i][j][k].detach().cpu()
+
+        #if record_debug:
+        #    if self.cfg["training"]["vertex_asym"]:
+        #        deformation_output, sym_conf_scores = deform_net(deform_net_input)
+        #        refinement_info["sym_conf_scores"] = sym_conf_scores.detach().cpu()
+
+        #        deformation_output = deformation_output.reshape((-1,3))
+        #        mesh = deform_net_input["mesh"].to(self.device)
+        #        deformed_mesh = mesh.offset_verts(deformation_output)
+        #        sym_plane_normal = [0,0,1]
+        #        _, img_sym_loss_debug_imgs = def_losses.image_symmetry_loss(deformed_mesh, sym_plane_normal, self.cfg["training"]["img_sym_num_azim"], self.device, sym_conf_scores)
+        #        for i in range(len(img_sym_loss_debug_imgs)):
+        #            for j in range(len(img_sym_loss_debug_imgs[i])):
+        #                img_sym_loss_debug_imgs[i][j] = img_sym_loss_debug_imgs[i][j].detach().cpu()
+
+        #        refinement_info["img_sym_loss_debug_imgs"] = img_sym_loss_debug_imgs
 
         if record_intermediate:
-            return deformed_meshes, refinement_info
+            return deformed_meshes, best_refinement_info
         else:
-            return best_deformed_mesh, refinement_info
+            return best_deformed_mesh, best_refinement_info

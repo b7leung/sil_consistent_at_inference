@@ -35,8 +35,8 @@ def vertex_symmetry_loss(mesh, sym_plane, device, asym_conf_scores=False, sym_bi
 
     if asym_conf_scores is not None:
         #avg_sym_loss = torch.mean(0.5*(torch.log(asym_conf_scores**2)) + torch.div(1,2*(asym_conf_scores**2))*nn_dists)
-        #avg_sym_loss = torch.mean(-torch.log(asym_conf_scores)*sym_bias + ((asym_conf_scores)*nn_dists))
-        avg_sym_loss = torch.mean(asym_conf_scores*sym_bias + ((torch.div(1,torch.exp(asym_conf_scores)))*nn_dists))
+        avg_sym_loss = torch.mean(torch.log(torch.div(1,asym_conf_scores))*sym_bias + ((asym_conf_scores)*nn_dists))
+        #avg_sym_loss = torch.mean(asym_conf_scores*sym_bias + ((torch.div(1,torch.exp(asym_conf_scores)))*nn_dists))
     else:
         avg_sym_loss = torch.mean(nn_dists)
     return avg_sym_loss
@@ -111,9 +111,9 @@ def image_symmetry_loss(mesh, sym_plane, num_azim, device, asym_conf_scores=None
         if asym_conf_scores is None:
             sym_loss += F.mse_loss(sym_triple[1], sym_triple[2])
         else:
-            #sym_loss += torch.mean((-torch.log(sym_triple[3])*sym_bias) + (F.mse_loss(sym_triple[1], sym_triple[2], reduction="none") * (sym_triple[3])))
+            sym_loss += torch.mean((torch.log(torch.div(1,sym_triple[3]))*sym_bias) + (F.mse_loss(sym_triple[1], sym_triple[2], reduction="none") * (sym_triple[3])))
             #sym_loss += torch.mean((-torch.log(sym_triple[3])*sym_bias) + (F.l1_loss(sym_triple[1], sym_triple[2], reduction="none") * (sym_triple[3])))
-            sym_loss += torch.mean((sym_triple[3]*sym_bias) + ((torch.div(1,torch.exp(sym_triple[3]))) * F.mse_loss(sym_triple[1], sym_triple[2], reduction="none")))
+            #sym_loss += torch.mean((sym_triple[3]*sym_bias) + ((torch.div(1,torch.exp(sym_triple[3]))) * F.mse_loss(sym_triple[1], sym_triple[2], reduction="none")))
 
     sym_loss = sym_loss / num_views_on_half
 
@@ -124,9 +124,11 @@ def image_symmetry_loss(mesh, sym_plane, num_azim, device, asym_conf_scores=None
 # assumes all meshes use the same sym_plane
 def image_symmetry_loss_batched(meshes, sym_plane, num_azim, device, asym_conf_scores=None, sym_bias=0.005, render_silhouettes=True):
     total_img_sym_loss = 0
+    sym_img_sets = []
     for mesh in meshes:
-        curr_sym_loss, _ = image_symmetry_loss(mesh, sym_plane, num_azim, device, asym_conf_scores=asym_conf_scores, sym_bias=sym_bias, render_silhouettes=render_silhouettes)
+        curr_sym_loss, curr_sym_img_set = image_symmetry_loss(mesh, sym_plane, num_azim, device, asym_conf_scores=asym_conf_scores, sym_bias=sym_bias, render_silhouettes=render_silhouettes)
         total_img_sym_loss += curr_sym_loss
+        sym_img_sets.append(curr_sym_img_set)
     avg_img_sym_loss = total_img_sym_loss / len(meshes)
-    return avg_img_sym_loss
+    return avg_img_sym_loss, sym_img_sets
 

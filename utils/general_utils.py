@@ -18,6 +18,7 @@ from skimage.transform import resize
 from skimage import img_as_bool
 from tqdm import tqdm
 import torch.nn as nn
+import torch.nn.functional as F
 
 
 # Util function for loading meshes
@@ -239,6 +240,40 @@ def render_mesh(mesh, R, T, device, img_size=512, silhouette=False, soft_flat_sh
     rendered_images = renderer(mesh, cameras=cameras)
     return rendered_images
 
+
+def render_mesh_HQ(mesh, R, T, device, img_size=512, aa_factor=4, silhouette=True):
+    cameras = OpenGLPerspectiveCameras(device=device, R=R, T=T)
+    raster_settings = RasterizationSettings(
+        image_size=img_size*aa_factor, 
+        blur_radius=0.000, 
+        faces_per_pixel=1, 
+        cull_backfaces=True
+    )
+    ambient = 0.5
+    diffuse = 0.4
+    specular = 0.3
+    lights = PointLights(device=device, ambient_color=((ambient, ambient, ambient), ), diffuse_color=((diffuse, diffuse, diffuse), ),
+        specular_color=((specular, specular, specular), ), location=[[0.0, 5.0, -10.0]])
+    #lights = DirectionalLights(device=device, ambient_color=((ambient, ambient, ambient), ), diffuse_color=((diffuse, diffuse, diffuse), ),
+    #    specular_color=((specular, specular, specular), ), direction=[[0.0, 5.0, -10.0]])
+    #lights = PointLights(device=device, ambient_color=((0.5, 0.5, 0.5), ), diffuse_color=((0.3, 0.3, 0.3), ), specular_color=((0.2, 0.2, 0.2), ), location=[[0.0, 5.0, -10.0]])
+    renderer = MeshRenderer(
+        rasterizer=MeshRasterizer(
+            cameras=cameras, 
+            raster_settings=raster_settings
+        ),
+        shader=HardPhongShader(
+            device=device, 
+            cameras=cameras,
+            lights=lights
+        )
+    )
+    images = renderer(mesh, cameras=cameras)
+    images = images.permute(0, 3, 1, 2)  # NHWC -> NCHW
+    images = F.avg_pool2d(images, kernel_size=aa_factor, stride=aa_factor)
+    images = images.permute(0, 2, 3, 1)  # NCHW -> NHWC
+
+    return images 
 
 # for batched rendering of many images
 # mesh parameter is assumed to be in the cpu.
