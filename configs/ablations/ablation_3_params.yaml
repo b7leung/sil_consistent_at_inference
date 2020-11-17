@@ -1,0 +1,25 @@
+
+# # Table 1, row 3
+refinement:
+  num_iterations: 400
+  learning_rate: 0.00007
+
+# loss function parameters
+training:
+  semantic_dis_lam: 0 # semantic discriminator loss weight 
+
+  img_sym_num_azim: 3 #[3*]
+  img_sym_lam: 0 # image-based symmetry loss [75*]
+  img_sym_bias: 0.0005
+
+  sil_lam: 10 # silouette loss. [10*]
+  vertex_sym_lam: 20 # vertex-based symmetry loss [0.0*]
+  vertex_sym_bias: 0.0005
+  
+  vertex_asym: true
+  
+  l2_lam: 100 # l2 loss on delta v  [100*]
+  lap_smoothness_lam: 10  # laplacian smoothing loss [10*]
+  normal_consistency_lam: 10 # normal consistency loss [10*]
+  
+

@@ -6,20 +6,49 @@ refinement:
 
 # loss function parameters
 training:
-  semantic_dis_lam: 0 # semantic discriminator loss weight 
+  semantic_dis_lam: 10 # semantic discriminator loss weight 
 
   img_sym_num_azim: 3 #[3*]
-  img_sym_lam: 100 # image-based symmetry loss [75*]
+  img_sym_lam: 0 # image-based symmetry loss [75*]
   img_sym_bias: 0.0005
 
-  sil_lam: 10 # silouette loss. [10*]
-  vertex_sym_lam: 100 # vertex-based symmetry loss [0.0*]
+  sil_lam: 0 # silouette loss. [10*]
+  vertex_sym_lam: 0 # vertex-based symmetry loss [0.0*]
   vertex_sym_bias: 0.0005
   
   vertex_asym: true
   
-  l2_lam: 100 # l2 loss on delta v  [100*]
+  l2_lam: 1 # l2 loss on delta v  [100*]
   lap_smoothness_lam: 10  # laplacian smoothing loss [10*]
   normal_consistency_lam: 10 # normal consistency loss [10*]
   
+semantic_dis_training:
+  batch_size: 1
+  use_input_mesh_cache: true
+  recompute_input_mesh_cache: true
+  dis_epochs_per_iteration: 30
+  gen_epochs_per_iteration: 100
+  real_label_offset: 0
+  label_noise: 0
+  early_stop_dis_acc: -1 # stops training of discriminator early if avg acc of last 10 batches is >= this threshold, in [0,1]. to disable,set to -1
 
+  gen_dir_mesh: "data/adversarial/gen/cubetest/mesh"
+  gen_dir_img: "data/adversarial/gen/cubetest/img"
+  gen_poses: "data/adversarial/gen/cubetest/poses.p"
+
+  dis_type: "multiview" # type of discriminator input, in {renders, points, multiview}
+
+  dis_mv_real_shapes_dir: "data/adversarial/dis/cubetest"
+  dis_mv_rerender: False
+  dis_mv_use_cache: True
+  dis_mv_recompute_cache: True
+  dis_mv_azims: [0,45,90,135,180,225,270,315]
+  dis_mv_dist: 2
+  dis_mv_elev: 30
+  dis_mv_render_sil: False
+  dis_mv_img_size: 224
+  dis_mv_lr: 0.00001
+  dis_mv_decay: 0.01
+  dis_mv_backbone: "vgg11"
+
+  

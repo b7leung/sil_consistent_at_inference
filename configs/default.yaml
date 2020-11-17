@@ -16,7 +16,6 @@ model:
   latent_dim_pointnet: 512
   latent_dim_resnet: 256
   decoder_dim: 1024
-  output_delta_V: true # if, conceptually, the model should be outputting delta V (just the displacement), or the entire (delta V + V)
 
 
 # parameters for test-time optimization
@@ -45,11 +44,9 @@ training:
 semantic_dis_training:
   # basic setup configs
   output_dir: "out" # Path to folder to output saved weights and training pickle
-  input_dir_pose: "data/onet_chair_pix3d_dann_simplified_processed/pred_poses.p" # path to predicted pose cache dict corresponding to mesh/imgs in input_dir_mesh and input_dir_img
-  dataset_meshes_list_path: "data/onet_chair_pix3d_dann_simplified/1502.lst" # path to a file which lists the meshes/imgs to use from input_dir_mesh and input_dir_img. Meshes have to have the same # vertices.
+  cache_dir: "caches"
   use_input_mesh_cache: true
   recompute_input_mesh_cache: false
-  mesh_num_verts: 1502
   dis_weight_path: ""
   gen_weight_path: ""
   save_model_every: 200 # save model every n adversarial iterations
@@ -63,23 +60,38 @@ semantic_dis_training:
   adv_iterations: 10
   dis_epochs_per_iteration: 30
   gen_epochs_per_iteration: 100
-  num_batches_gen_train: 30
+  num_batches_gen_train: -1
   early_stop_dis_acc: -1 # stops training of discriminator early if avg acc of last 10 batches is >= this threshold, in [0,1]. to disable,set to -1
 
 
   # generator options
   deform_net_type: "gcn_full" # {pointnet, gcn, gcn_pn, gcn_full}
-  gen_data_type: "standard" # {standard, deform_sphere_debug}
+  gen_dir_mesh: ""
+  gen_dir_img: ""
+  gen_poses: ""
   gen_pointnet_lr: 0.00008
-  gen_gcn_lr: 0.00008
-  gen_decay: 0.0001
+  gen_gcn_lr: 0.00007
+  gen_decay: 0.0
 
   # discriminator options 
-  dis_type: "points" # type of discriminator input, in {renders, points}
+  dis_type: "multiview" # type of discriminator input, in {renders, points, multiview}
   dropout_p: 0.8 # amount of dropout to use in discriminator network
 
+  # for dis_type = multiview
+  dis_mv_real_shapes_dir: ""
+  dis_mv_rerender: False
+  dis_mv_azims: [0,45,90,135,180,225,270,315]
+  dis_mv_dist: 1.5
+  dis_mv_elev: 30
+  dis_mv_render_sil: True
+  dis_mv_img_size: 224
+  dis_mv_lr: 0.00001
+  dis_mv_decay: 0.01
+  dis_mv_backbone: "vgg11"
+
+
   # for dis_type = points
-  real_shapes_dir: "/home/svcl-oowl/dataset/ShapeNetCore.v1/03001627"
+  dis_points_real_shapes_dir: "/home/svcl-oowl/dataset/ShapeNetCore.v1/03001627"
   sampled_points_path: "data/real_sampled_points/shapenet_chairs_1502.pt"
   recompute_cache: false
   dis_points_lr: 0.00001

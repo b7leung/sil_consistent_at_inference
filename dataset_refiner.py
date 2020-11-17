@@ -158,13 +158,7 @@ if __name__ == "__main__":
     shutil.copyfile(args.cfg_path, os.path.join(args.data_out_dir, args.cfg_path.split("/")[-1]))
 
     # finding which instances are in this batch
-    instance_names = []
-    for mesh_path in glob.glob(os.path.join(input_dir_mesh, "*.obj")):
-        img_path = os.path.join(input_dir_img, mesh_path.split('/')[-1].replace("obj", "png"))
-        if not os.path.exists(img_path):
-            raise ValueError("Couldn't find image for mesh {}.".format(mesh_path))
-        instance_names.append(mesh_path.split('/')[-1][:-4])
-    instance_names = sorted(instance_names)
+    instance_names = general_utils.get_instances(input_dir_mesh, input_dir_img)
     curr_batch_instances = split(instance_names, args.num_batches)[args.batch_i-1]
 
     # precomputing poses for this batch if necessary

@@ -48,11 +48,34 @@ def compute_render_sem_dis_logits(meshes_batch, semantic_discriminator_net, devi
     return logits, renders_rgb
 
 
+def compute_multiview_sem_dis_logits(meshes_batch, semantic_discriminator_net, device, cfg):
+    num_meshes = len(meshes_batch)
+    azims = torch.tensor(cfg["semantic_dis_training"]["dis_mv_azims"]).repeat(num_meshes)
+    num_azims = len(azims)
+    dists = torch.ones(num_meshes*num_azims) * cfg["semantic_dis_training"]["dis_mv_dist"]
+    elevs = torch.ones(num_meshes*num_azims) * cfg["semantic_dis_training"]["dis_mv_elev"]
+    R, T = look_at_view_transform(dists, elevs, azims)
+
+    # TODO: check this; should be repeat interleave
+    img_size = cfg["semantic_dis_training"]["dis_mv_img_size"]
+    extended_meshes = meshes_batch.extend(num_azims)
+    renders = general_utils.render_mesh(extended_meshes, R, T, device, img_size=img_size, silhouette=cfg["semantic_dis_training"]["dis_mv_render_sil"])
+
+    # convert from [bxM, 224,224,4] to [b, M, 3, 224, 224]
+    renders = renders[...,:3].permute(0,3,2,1).unsqueeze(0).reshape(num_meshes, num_azims, 3, img_size, img_size)
+
+    logits = semantic_discriminator_net(renders)
+
+    return logits, None
+
+
 def compute_sem_dis_logits(meshes_batch, semantic_discriminator_net, device, cfg):
     if cfg['semantic_dis_training']['dis_type'] == "renders":
         return compute_render_sem_dis_logits(meshes_batch, semantic_discriminator_net, device, cfg)
     elif cfg['semantic_dis_training']['dis_type'] == "points":
         return compute_points_sem_dis_logits(meshes_batch, semantic_discriminator_net, device, cfg)
+    elif cfg['semantic_dis_training']['dis_type'] == "multiview":
+        return compute_multiview_sem_dis_logits(meshes_batch, semantic_discriminator_net, device, cfg)
     else:
         raise ValueError("dis_type must be renders or pointnet")
 
@@ -73,23 +96,13 @@ def batched_forward_pass(cfg, device, deform_net, semantic_dis_net, input_batch,
 
     if cfg["training"]["vertex_asym"]:
         deformation_output, asym_conf_scores = deform_net(input_batch)
-        # mesh_batch.textures = TexturesVertex(verts_features = torch.tensor(mesh_rgb_verts, dtype=torch.float32).unsqueeze(0).to(device))
-        # TODO: generalize this to be batched instead of unsqueeze
-        #mesh_batch.textures = TexturesVertex(verts_features=asym_conf_scores.unsqueeze(0))
         forward_pass_info["asym_conf_scores"] = asym_conf_scores
     else:
         deformation_output = deform_net(input_batch)
         asym_conf_scores = None
         
-    #if cfg["model"]["output_delta_V"]:
-
     deformation_output = deformation_output.reshape((-1,3))
     deformed_meshes = mesh_batch.offset_verts(deformation_output)
-
-    #else:
-    #    batch_size = deformation_output.shape[0]
-    #    deformation_output = deformation_output.reshape((batch_size,-1,3))
-    #    deformed_meshes = mesh_batch.update_padded(deformation_output)
 
     # computing network's losses
     loss_dict = {}

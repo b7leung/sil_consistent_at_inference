@@ -23,3 +23,4 @@ build/
 *.cpp
 data_prep_tools/core.16
 .~*.ipynb
+misc/internal/legacy/out

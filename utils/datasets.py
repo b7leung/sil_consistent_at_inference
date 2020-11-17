@@ -14,9 +14,12 @@ import pytorch3d.structures
 from pytorch3d.io import load_objs_as_meshes
 from pytorch3d.io import load_obj
 from tqdm.autonotebook import tqdm
+import cv2
 
-from utils import utils, network_utils
-
+from utils import general_utils
+from pytorch3d.renderer import (
+    look_at_view_transform
+)
 
 # input should be a list of dicts
 def gen_data_collate(batch):
@@ -38,17 +41,14 @@ class GenerationDataset(Dataset):
     def __init__(self, cfg):
         self.cfg = cfg
         self.cpu_device = torch.device("cpu")
-        self.input_dir_img = cfg['dataset']['input_dir_img']
-        self.input_dir_mesh = cfg['dataset']['input_dir_mesh']
-        self.input_dir_pose = cfg['semantic_dis_training']['input_dir_pose']
-        self.cached_pred_poses = pickle.load(open(self.input_dir_pose, "rb"))
-        self.dataset_meshes_list_path = cfg['semantic_dis_training']['dataset_meshes_list_path']
+        self.input_dir_img = cfg['semantic_dis_training']['gen_dir_img']
+        self.input_dir_mesh = cfg['semantic_dis_training']['gen_dir_mesh']
+        self.dataset_meshes_list = general_utils.get_instances(self.input_dir_mesh, self.input_dir_img)
+        self.gen_poses = cfg['semantic_dis_training']['gen_poses']
+        self.cached_pred_poses = pickle.load(open(self.gen_poses, "rb"))
 
         self.num_batches_gen_train = cfg["semantic_dis_training"]["num_batches_gen_train"]
         self.batch_size = cfg["semantic_dis_training"]["batch_size"]
-
-        with open (self.dataset_meshes_list_path, 'r') as f:
-            self.dataset_meshes_list = f.read().split('\n')
         
         if self.num_batches_gen_train != -1:
             self.dataset_meshes_list = self.dataset_meshes_list[:self.num_batches_gen_train * self.batch_size]
@@ -60,10 +60,13 @@ class GenerationDataset(Dataset):
         # computing cache for entire dataset
         self.recompute_cache = cfg['semantic_dis_training']['recompute_input_mesh_cache']
         self.use_cache = cfg['semantic_dis_training']['use_input_mesh_cache']
-        self.input_mesh_cache_path = "caches/generation_dataset_cache_{}.pt".format(len(self.dataset_meshes_list))
+        # TODO: make this cache filename more detailed
+        self.input_mesh_cache_path = os.path.join(cfg["semantic_dis_training"]["cache_dir"],"generation_dataset_cache_{}.pt".format(len(self.dataset_meshes_list)))
         if self.recompute_cache or (self.use_cache and not os.path.exists(self.input_mesh_cache_path)):
             print("Caching generation dataset...")
             self.cached_data = [self.getitem_scratch(i) for i in tqdm(range(self.__len__()))]
+            if not os.path.exists(cfg["semantic_dis_training"]["cache_dir"]):
+                os.makedirs(cfg["semantic_dis_training"]["cache_dir"])
             torch.save(self.cached_data, self.input_mesh_cache_path)
         elif self.use_cache:
             print("Loading cached generation dataset at {}...".format(self.input_mesh_cache_path))
@@ -79,13 +82,9 @@ class GenerationDataset(Dataset):
 
     def __getitem__(self, idx):
         if self.use_cache:
-            return self.getitem_cache(idx)
+            return self.cached_data[idx]
         else:
             return self.getitem_scratch(idx)
-
-
-    def getitem_cache(self,idx):
-        return self.cached_data[idx]
 
 
     def getitem_scratch(self, idx):
@@ -103,7 +102,7 @@ class GenerationDataset(Dataset):
         with torch.no_grad():
             # load mesh to cpu
             # This can probably be done in a more efficent way (load a batch of meshes?)
-            mesh = utils.load_untextured_mesh(curr_obj_path, self.cpu_device)
+            mesh = general_utils.load_untextured_mesh(curr_obj_path, self.cpu_device)
         data["mesh"] = mesh
             
         data["mesh_verts"] = mesh.verts_packed()
@@ -120,6 +119,81 @@ class GenerationDataset(Dataset):
         data["pose"] = torch.tensor([pred_dist, pred_elev, pred_azim])
 
         return data
+
+
+class RealMultiviewDataset(Dataset):
+
+    def __init__(self, cfg, device):
+        self.cfg = cfg
+        self.device = device
+        real_shapes_dir = cfg["semantic_dis_training"]["dis_mv_real_shapes_dir"]
+        self.instances = general_utils.get_instances(real_shapes_dir)
+        self.cache_dir = os.path.join(cfg["semantic_dis_training"]["cache_dir"], "multiview_dataset", real_shapes_dir.replace('/', '_'))
+
+        # rendering all images from real shapes dir
+        rerender = cfg["semantic_dis_training"]["dis_mv_rerender"]
+        if rerender or not os.path.exists(self.cache_dir):
+            os.makedirs(self.cache_dir, exist_ok=True)
+            for instance in tqdm(self.instances):
+                self.render_and_save(os.path.join(real_shapes_dir, "{}.obj".format(instance)), self.cache_dir)
+
+        # saving img tensor cache
+        self.img_transforms = transforms.Compose([transforms.ToTensor()])
+        self.cache_path = os.path.join(self.cache_dir, "cache.pt")
+        self.recompute_cache = cfg['semantic_dis_training']['dis_mv_recompute_cache']
+        self.use_cache = cfg['semantic_dis_training']['dis_mv_use_cache']
+        if self.recompute_cache or (self.use_cache and not os.path.exists(self.cache_path)):
+            print("Caching generation dataset...")
+            self.cached_data = [self.getitem_scratch(i) for i in tqdm(range(self.__len__()))]
+            torch.save(self.cached_data, self.cache_path)
+        elif self.use_cache:
+            print("Loading cached generation dataset at {}...".format(self.cache_path))
+            self.cached_data = torch.load(self.cache_path)
+            # check for case where num_batches_gen_train has changed
+            if len(self.cached_data) != len(self.instances):
+                raise ValueError("Cache length {} != requested length {}. Try recomputing cache with current settings.".format(len(self.cached_data), len(self.dataset_meshes_list)))
+        
+        
+
+    def __getitem__(self, idx):
+        if self.use_cache:
+            return self.cached_data[idx]
+        else:
+            return self.getitem_scratch(idx)
+
+
+    def getitem_scratch(self, idx):
+        #data = {}
+        instance = self.instances[idx]
+        #data["instance_name"] = instance
+
+        mv_imgs = []
+        for instance_mv_img in sorted([str(path) for path in list(Path(self.cache_dir).rglob('{}*'.format(instance)))]):
+            mv_imgs.append(self.img_transforms(Image.open(instance_mv_img).convert("RGB")).unsqueeze(0))
+        mv_imgs = torch.cat(mv_imgs)
+
+        return mv_imgs
+
+    
+    def render_and_save(self, mesh_path, output_dir):
+        instance = mesh_path.split('/')[-1][:-4]
+        azims = self.cfg["semantic_dis_training"]["dis_mv_azims"]
+        num_azims = len(azims)
+        dists = torch.ones(num_azims) * self.cfg["semantic_dis_training"]["dis_mv_dist"]
+        elevs = torch.ones(num_azims) * self.cfg["semantic_dis_training"]["dis_mv_elev"]
+        R, T = look_at_view_transform(dists, elevs, azims)
+        mesh = general_utils.load_untextured_mesh(mesh_path, self.device)
+        meshes = mesh.extend(num_azims)
+        renders = general_utils.render_mesh(meshes, R, T, self.device, img_size=self.cfg["semantic_dis_training"]["dis_mv_img_size"], silhouette=self.cfg["semantic_dis_training"]["dis_mv_render_sil"])
+        for i, render in enumerate(renders):
+            img_render_rgb = (render[..., :3].cpu().numpy()*255).astype(int) 
+            rgb_render_filename = "{}_{:03d}.jpg".format(instance,i)
+            cv2.imwrite(os.path.join(output_dir, rgb_render_filename), img_render_rgb)
+        
+
+    def __len__(self):
+        return len(self.instances)
+        
 
 
 dis_input_PIL_transforms= transforms.Compose([

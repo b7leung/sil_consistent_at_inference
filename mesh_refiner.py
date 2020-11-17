@@ -7,13 +7,8 @@ from tqdm.autonotebook import tqdm
 import pandas as pd
 
 from deformation.deformation_net import DeformationNetwork
-from deformation.deformation_net_graph_convolutional import DeformationNetworkGraphConvolutional
-from deformation.deformation_net_graph_convolutional_PN import DeformationNetworkGraphConvolutionalPN
 from deformation.deformation_net_graph_convolutional_full import DeformationNetworkGraphConvolutionalFull
-from deformation.semantic_discriminator_net_renders import RendersSemanticDiscriminatorNetwork
-from deformation.semantic_discriminator_net_points import PointsSemanticDiscriminatorNetwork
 from deformation.forward_pass import batched_forward_pass
-import deformation.losses as def_losses
 
 
 class MeshRefiner():
@@ -42,12 +37,8 @@ class MeshRefiner():
         deform_net_type = self.cfg["semantic_dis_training"]["deform_net_type"]
         if deform_net_type == "pointnet":
             deform_net = DeformationNetwork(self.cfg, num_verts, self.device)
-        elif deform_net_type == "gcn":
-            deform_net = DeformationNetworkGraphConvolutional(self.cfg, self.cfg["semantic_dis_training"]["mesh_num_verts"], self.device)
         elif deform_net_type == "gcn_full":
             deform_net = DeformationNetworkGraphConvolutionalFull(self.cfg, self.cfg["semantic_dis_training"]["mesh_num_verts"], self.device)
-        elif deform_net_type == "gcn_pn":
-            deform_net = DeformationNetworkGraphConvolutionalPN(self.cfg, self.cfg["semantic_dis_training"]["mesh_num_verts"], self.device)
         else:
             raise ValueError("generator deform net type not recognized")
         if self.gen_weight_path != "":
@@ -61,8 +52,7 @@ class MeshRefiner():
         dis_type = self.cfg['semantic_dis_training']['dis_type']
         if dis_type == "renders":
             semantic_dis_net = RendersSemanticDiscriminatorNetwork(self.cfg)
-        elif dis_type == "points":
-            semantic_dis_net = PointsSemanticDiscriminatorNetwork(self.cfg)
+
         else:
             raise ValueError("dis_type must be renders or pointnet")
         if self.dis_weight_path != "":
@@ -139,22 +129,6 @@ class MeshRefiner():
                 for j in range(len(best_refinement_info["img_sym_loss_debug_imgs"][i])):
                     for k in range(len(best_refinement_info["img_sym_loss_debug_imgs"][i][j])):
                         best_refinement_info["img_sym_loss_debug_imgs"][i][j][k] = best_refinement_info["img_sym_loss_debug_imgs"][i][j][k].detach().cpu()
-
-        #if record_debug:
-        #    if self.cfg["training"]["vertex_asym"]:
-        #        deformation_output, sym_conf_scores = deform_net(deform_net_input)
-        #        refinement_info["sym_conf_scores"] = sym_conf_scores.detach().cpu()
-
-        #        deformation_output = deformation_output.reshape((-1,3))
-        #        mesh = deform_net_input["mesh"].to(self.device)
-        #        deformed_mesh = mesh.offset_verts(deformation_output)
-        #        sym_plane_normal = [0,0,1]
-        #        _, img_sym_loss_debug_imgs = def_losses.image_symmetry_loss(deformed_mesh, sym_plane_normal, self.cfg["training"]["img_sym_num_azim"], self.device, sym_conf_scores)
-        #        for i in range(len(img_sym_loss_debug_imgs)):
-        #            for j in range(len(img_sym_loss_debug_imgs[i])):
-        #                img_sym_loss_debug_imgs[i][j] = img_sym_loss_debug_imgs[i][j].detach().cpu()
-
-        #        refinement_info["img_sym_loss_debug_imgs"] = img_sym_loss_debug_imgs
 
         if record_intermediate:
             return deformed_meshes, best_refinement_info

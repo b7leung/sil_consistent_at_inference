@@ -7,16 +7,14 @@ import pytorch3d
 from .pointnet import SimplePointnet, ResnetPointnet, ResnetPointnetExtended
 from .resnet import Resnet18, Resnet34
 from .resnet_backbone import build_backbone
-from utils import network_utils
 from utils import coords
 
 # based on https://github.com/facebookresearch/meshrcnn/blob/89b59e6df2eb09b8798eae16e204f75bb8dc92a7/shapenet/modeling/heads/mesh_head.py
 class DeformationNetworkGraphConvolutionalFull(nn.Module):
 
-    def __init__(self, cfg, num_vertices, device):
+    def __init__(self, cfg, device):
         super().__init__()
         self.device = device
-        self.num_vertices = num_vertices
         
         self.asym = cfg["training"]["vertex_asym"]
 
