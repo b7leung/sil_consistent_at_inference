@@ -59,14 +59,14 @@ def compute_multiview_sem_dis_logits(meshes_batch, semantic_discriminator_net, d
     # TODO: check this; should be repeat interleave
     img_size = cfg["semantic_dis_training"]["dis_mv_img_size"]
     extended_meshes = meshes_batch.extend(num_azims)
-    renders = general_utils.render_mesh(extended_meshes, R, T, device, img_size=img_size, silhouette=cfg["semantic_dis_training"]["dis_mv_render_sil"])
+    renders = general_utils.render_mesh(extended_meshes, R, T, device, img_size=img_size, silhouette=cfg["semantic_dis_training"]["dis_mv_render_sil"], custom_lights="ambient")
 
     # convert from [bxM, 224,224,4] to [b, M, 3, 224, 224]
     renders = renders[...,:3].permute(0,3,2,1).unsqueeze(0).reshape(num_meshes, num_azims, 3, img_size, img_size)
 
     logits = semantic_discriminator_net(renders)
 
-    return logits, None
+    return logits, renders 
 
 
 def compute_sem_dis_logits(meshes_batch, semantic_discriminator_net, device, cfg):
@@ -124,11 +124,7 @@ def batched_forward_pass(cfg, device, deform_net, semantic_dis_net, input_batch,
         if cfg["training"]["l2_lam"] > 0:
             num_vertices = deformed_meshes.verts_packed().shape[0]
             zero_deformation_tensor = torch.zeros((num_vertices, 3)).to(device)
-            # TODO: fix this, or remove del v + v option entirely
-            if cfg["model"]["output_delta_V"]:
-                loss_dict["l2_loss"] = F.mse_loss(deformation_output, zero_deformation_tensor)
-            else:
-                loss_dict["l2_loss"] = torch.tensor(0).to(device)
+            loss_dict["l2_loss"] = F.mse_loss(deformation_output, zero_deformation_tensor)
         else:
             loss_dict["l2_loss"] = torch.tensor(0).to(device)
 

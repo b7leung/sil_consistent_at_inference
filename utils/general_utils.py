@@ -133,7 +133,7 @@ def load_untextured_mesh(mesh_path, device):
 
 
 # for rendering a single image
-def render_mesh(mesh, R, T, device, img_size=512, silhouette=False, custom_lights=None):
+def render_mesh(mesh, R, T, device, img_size=512, silhouette=False, custom_lights=""):
     cameras = OpenGLPerspectiveCameras(device=device, R=R, T=T)
 
     if silhouette:
@@ -157,8 +157,14 @@ def render_mesh(mesh, R, T, device, img_size=512, silhouette=False, custom_light
             blur_radius=0.0, 
             faces_per_pixel=1, 
         )
-        if custom_lights is None:
+        if custom_lights == "":
             lights = PointLights(device=device, location=[[0.0, 5.0, -10.0]])
+        elif type(custom_lights) == str and custom_lights == "ambient":
+            ambient = 0.5
+            diffuse = 0
+            specular = 0
+            lights = PointLights(device=device, ambient_color=((ambient, ambient, ambient), ), diffuse_color=((diffuse, diffuse, diffuse), ),
+                                 specular_color=((specular, specular, specular), ), location=[[0.0, 5.0, -10.0]])
         else:
             lights = custom_lights
 

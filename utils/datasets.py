@@ -184,7 +184,8 @@ class RealMultiviewDataset(Dataset):
         R, T = look_at_view_transform(dists, elevs, azims)
         mesh = general_utils.load_untextured_mesh(mesh_path, self.device)
         meshes = mesh.extend(num_azims)
-        renders = general_utils.render_mesh(meshes, R, T, self.device, img_size=self.cfg["semantic_dis_training"]["dis_mv_img_size"], silhouette=self.cfg["semantic_dis_training"]["dis_mv_render_sil"])
+        renders = general_utils.render_mesh(meshes, R, T, self.device, img_size=self.cfg["semantic_dis_training"]["dis_mv_img_size"], 
+                                            silhouette=self.cfg["semantic_dis_training"]["dis_mv_render_sil"], custom_lights="ambient")
         for i, render in enumerate(renders):
             img_render_rgb = (render[..., :3].cpu().numpy()*255).astype(int) 
             rgb_render_filename = "{}_{:03d}.jpg".format(instance,i)

@@ -3,7 +3,7 @@ import torch
 import torch.nn as nn
 from .pointnet import SimplePointnet, ResnetPointnet, ResnetPointnetExtended
 from .resnet import Resnet18, Resnet34
-from utils import network_utils
+from utils import general_utils
 
 class DeformationNetwork(nn.Module):
 
@@ -74,7 +74,7 @@ class DeformationNetwork(nn.Module):
 
         if cfg["semantic_dis_training"]["gen_small_weights_init"]:
             # TODO: should this also be applied to pointnet encoder?
-            self.deform_net.apply(network_utils.weights_init_normal)
+            self.deform_net.apply(general_utils.weights_init_normal)
 
     
     def forward(self, input_batch):

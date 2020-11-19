@@ -1,6 +1,9 @@
+import os
+
 import numpy as np
 import matplotlib.pyplot as plt
 import torch.nn.functional as F
+from torchvision import transforms
 # Data structures and functions for rendering
 from pytorch3d.renderer import (
     look_at_view_transform,
@@ -12,6 +15,21 @@ from pytorch3d.renderer import (
     HardPhongShader
 )
 
+# given a tensor of batches of images, dimensions (b x c x w x h) saves up to a specified save_num amount of them into jpgs
+# if a multiview tensor of size [b, M, c, H, W] is detected, then up to save_num amount of multiview images are saved
+def save_tensor_img(tensor, name_prefix, output_dir, save_num=5):
+    img_transforms = transforms.Compose([transforms.ToPILImage()])
+    if not os.path.exists(output_dir): os.makedirs(output_dir)
+    tensor = tensor.detach().cpu()
+
+    if tensor.shape[0] > save_num and (save_num != -1):
+        tensor = tensor[:save_num]
+
+    if len(tensor.shape) == 5:
+        tensor = tensor.reshape(-1, tensor.shape[-3], tensor.shape[-2], tensor.shape[-1])
+
+    for i, img_tensor in enumerate(tensor):
+        img_transforms(img_tensor).save(os.path.join(output_dir, name_prefix+"_{}.jpg".format(i)))
 
 
 def show_renders(renders_batch, masks=True):

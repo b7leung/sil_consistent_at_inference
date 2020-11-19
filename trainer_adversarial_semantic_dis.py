@@ -16,24 +16,24 @@ import numpy as np
 from deformation.deformation_net import DeformationNetwork
 from deformation.deformation_net_graph_convolutional_full import DeformationNetworkGraphConvolutionalFull
 
-from utils import utils
+from utils import general_utils
 from utils.datasets import GenerationDataset, ShapenetRendersDataset, ShapenetPointsDataset, RealMultiviewDataset
-from deformation.semantic_discriminator_net_renders import RendersSemanticDiscriminatorNetwork
-from deformation.semantic_discriminator_net_points import PointsSemanticDiscriminatorNetwork
+#from deformation.semantic_discriminator_net_renders import RendersSemanticDiscriminatorNetwork
+#from deformation.semantic_discriminator_net_points import PointsSemanticDiscriminatorNetwork
 from deformation.multiview_semantic_discriminator_network import MultiviewSemanticDiscriminatorNetwork
 from utils.datasets import gen_data_collate
 from deformation.forward_pass import batched_forward_pass, compute_sem_dis_logits
+from utils.visualization_tools import save_tensor_img
 
 
 class AdversarialDiscriminatorTrainer():
 
     def __init__(self, cfg_path, gpu_num, exp_name, num_workers):
-        self.cfg = utils.load_config(cfg_path, "configs/default.yaml")
+        self.cfg = general_utils.load_config(cfg_path, "configs/default.yaml")
         self.device = torch.device("cuda:"+str(gpu_num))
         self.batch_size = self.cfg["semantic_dis_training"]["batch_size"]
         self.dis_type = self.cfg['semantic_dis_training']['dis_type']
         self.deform_net_type = self.cfg["semantic_dis_training"]["deform_net_type"]
-        self.gen_data_type = self.cfg["semantic_dis_training"]["gen_data_type"]
         self.dis_weight_path = self.cfg["semantic_dis_training"]["dis_weight_path"]
         self.gen_weight_path = self.cfg["semantic_dis_training"]["gen_weight_path"]
         self.total_training_iters = self.cfg["semantic_dis_training"]["adv_iterations"]
@@ -55,20 +55,7 @@ class AdversarialDiscriminatorTrainer():
         self.fake_labels_dist = torch.distributions.Uniform(torch.tensor([0.0]), torch.tensor([0.0+self.label_noise]))
 
         self.num_workers = num_workers
-        self.tqdm_out = utils.TqdmPrintEvery()
-
-
-    # given a tensor of batches of images, dimensions (b x w x h x c) or channel-first (b x c x w x h) saves a specified amount of them into jpgs
-    def save_tensor_img(self, tensor, channel_first, name_prefix, output_dir, save_num=5):
-        img_transforms = transforms.Compose([transforms.ToPILImage()])
-        if not os.path.exists(output_dir): os.makedirs(output_dir)
-        tensor = tensor.detach().cpu()
-        if not channel_first:
-            tensor = tensor.permute(0, 3, 1, 2)
-        if save_num != -1:
-            tensor = tensor[:save_num]
-        for i, img_tensor in enumerate(tensor):
-            img_transforms(img_tensor).save(os.path.join(output_dir, name_prefix+"_{}.jpg".format(i)))
+        self.tqdm_out = general_utils.TqdmPrintEvery()
 
 
     # TODO: write description of what this does
@@ -91,7 +78,7 @@ class AdversarialDiscriminatorTrainer():
 
                 deform_net.eval()
                 semantic_dis_net.eval()
-                loss_dict, deformed_mesh = batched_forward_pass(self.cfg, self.device, deform_net, semantic_dis_net, gen_batch, compute_losses=True)
+                loss_dict, deformed_mesh, _ = batched_forward_pass(self.cfg, self.device, deform_net, semantic_dis_net, gen_batch, compute_losses=True)
 
                 curr_instance_name = gen_batch["instance_name"][0]
                 save_obj(os.path.join(eval_output_path, "{}.obj".format(curr_instance_name)), deformed_mesh.verts_packed(), deformed_mesh.faces_packed())
@@ -105,7 +92,7 @@ class AdversarialDiscriminatorTrainer():
         pickle.dump(loss_info, open(os.path.join(eval_output_path, "eval_loss_info.p"),"wb"))
 
 
-    def setup_generator(self, dataset_type, deform_net_type):
+    def setup_generator(self, deform_net_type):
         # setting generator input dataset loader
         generation_dataset = GenerationDataset(self.cfg)
         generation_loader = torch.utils.data.DataLoader(generation_dataset, batch_size=self.batch_size, num_workers=self.num_workers, shuffle=True, collate_fn=gen_data_collate, drop_last=True)
@@ -183,7 +170,7 @@ class AdversarialDiscriminatorTrainer():
     def train(self):
 
         # setting up generator components 
-        generation_loader, deform_net, deform_optimizer = self.setup_generator(self.gen_data_type, self.deform_net_type)
+        generation_loader, deform_net, deform_optimizer = self.setup_generator(self.deform_net_type)
 
         # setting up discriminator components
         semantic_dis_loader, semantic_dis_net, semantic_dis_optimizer = self.setup_discriminator(self.dis_type)
@@ -252,11 +239,11 @@ class AdversarialDiscriminatorTrainer():
                                 tqdm.write("Iter. {}: Early stopped dis. training at epoch {}, batch {}, with avg acc of {}.".format(iter_idx, dis_epoch, batch_idx, dis_batch_avg_acc))
 
                     # if discriminator is render based, save some example inputs to discriminator from the first batch
-                    # TODO: left off here
                     if self.cfg['semantic_dis_training']['dis_type'] in ["renders", "multiview"] and dis_epoch == 0 and batch_idx == 0:
                         img_output_dir = os.path.join(self.training_output_dir, "training_saved_images", "iter_{}".format(iter_idx))
-                        self.save_tensor_img(real_batch, True, "iter_{}_real".format(iter_idx), img_output_dir, 32)
-                        self.save_tensor_img(semantic_dis_debug_data, False, "iter_{}_fake".format(iter_idx), img_output_dir, 32)
+                        # TODO: saving the real batch can be disabled, as long as everything looks right
+                        save_tensor_img(real_batch, "iter_{}_real".format(iter_idx), img_output_dir, 32)
+                        save_tensor_img(semantic_dis_debug_data, "iter_{}_fake".format(iter_idx), img_output_dir, 32)
 
                 if training_df["semantic_dis"].isnull().values.any():
                     tqdm.write("WARNING: nan in dataframe.")
@@ -275,7 +262,7 @@ class AdversarialDiscriminatorTrainer():
                     semantic_dis_net.eval()
                     deform_optimizer.zero_grad()
 
-                    loss_dict, _ = batched_forward_pass(self.cfg, self.device, deform_net, semantic_dis_net, gen_batch, compute_losses=True)
+                    loss_dict, _, _ = batched_forward_pass(self.cfg, self.device, deform_net, semantic_dis_net, gen_batch, compute_losses=True)
                     total_loss = sum([loss_dict[loss_name] * self.cfg['training'][loss_name.replace("loss", "lam")] for loss_name in loss_dict])
 
                     total_loss.backward()
@@ -300,7 +287,7 @@ class AdversarialDiscriminatorTrainer():
 
 
 
-# python adversarial_semantic_dis_trainer.py --exp_name test --light
+# python trainer_adversarial_semantic_dis.py --cfg configs/test.yaml --exp_name test --num_workers 2
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Adversarially train a SemanticDiscriminatorNetwork.')
     parser.add_argument('--cfg', type=str, default="configs/default.yaml", help='Path to yaml configuration file.')

@@ -23,13 +23,16 @@ training:
   normal_consistency_lam: 10 # normal consistency loss [10*]
   
 semantic_dis_training:
-  batch_size: 1
+  
   use_input_mesh_cache: true
   recompute_input_mesh_cache: true
-  dis_epochs_per_iteration: 30
-  gen_epochs_per_iteration: 100
+  save_model_every: 1 # save and evaluate model every n adversarial iterations
+
+  batch_size: 1
+  adv_iterations: 10
+  dis_epochs_per_iteration: 5
+  gen_epochs_per_iteration: 150
   real_label_offset: 0
-  label_noise: 0
   early_stop_dis_acc: -1 # stops training of discriminator early if avg acc of last 10 batches is >= this threshold, in [0,1]. to disable,set to -1
 
   gen_dir_mesh: "data/adversarial/gen/cubetest/mesh"
