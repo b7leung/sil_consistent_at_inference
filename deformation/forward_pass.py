@@ -59,7 +59,8 @@ def compute_multiview_sem_dis_logits(meshes_batch, semantic_discriminator_net, d
     # TODO: check this; should be repeat interleave
     img_size = cfg["semantic_dis_training"]["dis_mv_img_size"]
     extended_meshes = meshes_batch.extend(num_azims)
-    renders = general_utils.render_mesh(extended_meshes, R, T, device, img_size=img_size, silhouette=cfg["semantic_dis_training"]["dis_mv_render_sil"], custom_lights="ambient")
+    lighting_mode = cfg["semantic_dis_training"]["dis_mv_lighting_mode"]
+    renders = general_utils.render_mesh(extended_meshes, R, T, device, img_size=img_size, silhouette=cfg["semantic_dis_training"]["dis_mv_render_sil"], custom_lights=lighting_mode)
 
     # convert from [bxM, 224,224,4] to [b, M, 3, 224, 224]
     renders = renders[...,:3].permute(0,3,2,1).unsqueeze(0).reshape(num_meshes, num_azims, 3, img_size, img_size)

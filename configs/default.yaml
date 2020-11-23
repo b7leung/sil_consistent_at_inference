@@ -51,6 +51,7 @@ semantic_dis_training:
   gen_weight_path: ""
   save_model_every: 200 # save model every n adversarial iterations
   num_mesh_eval: 10
+  mesh_num_verts: 1500
 
   # training details
   gen_small_weights_init: false # note: this is overided if gen_weight_path is specified
@@ -65,7 +66,7 @@ semantic_dis_training:
 
 
   # generator options
-  deform_net_type: "gcn_full" # {pointnet, gcn, gcn_pn, gcn_full}
+  deform_net_type: "gcn_full" # {pointnet, gcn, gcn_pn, gcn_full, fc_points}
   gen_dir_mesh: ""
   gen_dir_img: ""
   gen_poses: ""
@@ -76,28 +77,27 @@ semantic_dis_training:
   # discriminator options 
   dis_type: "multiview" # type of discriminator input, in {renders, points, multiview}
   dropout_p: 0.8 # amount of dropout to use in discriminator network
+  dis_real_shapes_dir: ""
+  dis_data_recompute: True
+  dis_data_use_cache: True
+  dis_data_recreate_cache: True  
+
+  # for dis_type = points
+  recompute_cache: false
+  dis_points_lr: 0.00001
+  dis_points_decay: 0.01
+  dis_points_encoder: "rgan" # in {pointnet, fc, rgan}
 
   # for dis_type = multiview
-  dis_mv_real_shapes_dir: ""
-  dis_mv_rerender: False
   dis_mv_azims: [0,45,90,135,180,225,270,315]
   dis_mv_dist: 1.5
   dis_mv_elev: 30
+  dis_mv_lighting_mode: ""
   dis_mv_render_sil: True
   dis_mv_img_size: 224
   dis_mv_lr: 0.00001
   dis_mv_decay: 0.01
   dis_mv_backbone: "vgg11"
-
-
-  # for dis_type = points
-  dis_points_real_shapes_dir: "/home/svcl-oowl/dataset/ShapeNetCore.v1/03001627"
-  sampled_points_path: "data/real_sampled_points/shapenet_chairs_1502.pt"
-  recompute_cache: false
-  dis_points_lr: 0.00001
-  dis_points_decay: 0.01
-  dis_points_encoder: "rgan" # in {pointnet, fc, rgan}
-  DEBUG_single_real: false
 
   # for dis_type = renders
   real_dataset_dir: "data/semantic_dis/real_renders" # Path to folder with rendered images of real 3d models.

@@ -121,28 +121,38 @@ class GenerationDataset(Dataset):
         return data
 
 
-class RealMultiviewDataset(Dataset):
+
+class RealDataset(Dataset):
 
     def __init__(self, cfg, device):
         self.cfg = cfg
         self.device = device
-        real_shapes_dir = cfg["semantic_dis_training"]["dis_mv_real_shapes_dir"]
+        real_shapes_dir = cfg["semantic_dis_training"]["dis_real_shapes_dir"]
         self.instances = general_utils.get_instances(real_shapes_dir)
-        self.cache_dir = os.path.join(cfg["semantic_dis_training"]["cache_dir"], "multiview_dataset", real_shapes_dir.replace('/', '_'))
+        self.dis_type = cfg["semantic_dis_training"]["dis_type"]
+        if self.dis_type not in ["multiview", "points"]:
+            raise ValueError("Dis type not recognized")
+        self.cache_dir = os.path.join(cfg["semantic_dis_training"]["cache_dir"], "real_dataset", self.dis_type, real_shapes_dir.replace('/', '_'))
 
-        # rendering all images from real shapes dir
-        rerender = cfg["semantic_dis_training"]["dis_mv_rerender"]
-        if rerender or not os.path.exists(self.cache_dir):
+        # computing all meshes from real shapes dir
+        recompute = cfg["semantic_dis_training"]["dis_data_recompute"]
+        if recompute or not os.path.exists(self.cache_dir):
+            print("Recomputing {} assets...".format(self.dis_type))
             os.makedirs(self.cache_dir, exist_ok=True)
             for instance in tqdm(self.instances):
-                self.render_and_save(os.path.join(real_shapes_dir, "{}.obj".format(instance)), self.cache_dir)
+                if self.dis_type == "multiview":
+                    self.render_and_save(os.path.join(real_shapes_dir, "{}.obj".format(instance)), self.cache_dir)
+                else:
+                    self.extract_points(os.path.join(real_shapes_dir, "{}.obj".format(instance)), self.cache_dir)
+        else:
+            print("Reusing previusly computed {} assets...".format(self.dis_type))
 
-        # saving img tensor cache
         self.img_transforms = transforms.Compose([transforms.ToTensor()])
+        # saving tensor cache
         self.cache_path = os.path.join(self.cache_dir, "cache.pt")
-        self.recompute_cache = cfg['semantic_dis_training']['dis_mv_recompute_cache']
-        self.use_cache = cfg['semantic_dis_training']['dis_mv_use_cache']
-        if self.recompute_cache or (self.use_cache and not os.path.exists(self.cache_path)):
+        self.recreate_cache = cfg['semantic_dis_training']['dis_data_recreate_cache']
+        self.use_cache = cfg['semantic_dis_training']['dis_data_use_cache']
+        if self.recreate_cache or (self.use_cache and not os.path.exists(self.cache_path)):
             print("Caching generation dataset...")
             self.cached_data = [self.getitem_scratch(i) for i in tqdm(range(self.__len__()))]
             torch.save(self.cached_data, self.cache_path)
@@ -152,8 +162,11 @@ class RealMultiviewDataset(Dataset):
             # check for case where num_batches_gen_train has changed
             if len(self.cached_data) != len(self.instances):
                 raise ValueError("Cache length {} != requested length {}. Try recomputing cache with current settings.".format(len(self.cached_data), len(self.dataset_meshes_list)))
-        
-        
+    
+
+    def __len__(self):
+        return len(self.instances)
+
 
     def __getitem__(self, idx):
         if self.use_cache:
@@ -163,18 +176,29 @@ class RealMultiviewDataset(Dataset):
 
 
     def getitem_scratch(self, idx):
-        #data = {}
         instance = self.instances[idx]
-        #data["instance_name"] = instance
+        if self.dis_type == "multiview":
+            mv_imgs = []
+            for instance_mv_img in sorted([str(path) for path in list(Path(self.cache_dir).rglob('{}*'.format(instance)))]):
+                mv_imgs.append(self.img_transforms(Image.open(instance_mv_img).convert("RGB")).unsqueeze(0))
+            item = torch.cat(mv_imgs)
 
-        mv_imgs = []
-        for instance_mv_img in sorted([str(path) for path in list(Path(self.cache_dir).rglob('{}*'.format(instance)))]):
-            mv_imgs.append(self.img_transforms(Image.open(instance_mv_img).convert("RGB")).unsqueeze(0))
-        mv_imgs = torch.cat(mv_imgs)
+        else:
+            item = torch.load(os.path.join(self.cache_dir, "{}.pt".format(instance)))
 
-        return mv_imgs
+        return item
 
     
+    def extract_points(self, mesh_path, output_dir):
+        mesh = general_utils.load_untextured_mesh(mesh_path, self.device)
+
+        mesh_num_verts = self.cfg["semantic_dis_training"]["mesh_num_verts"]
+        points = pytorch3d.ops.sample_points_from_meshes(mesh, num_samples=mesh_num_verts)
+        points = torch.squeeze(points, dim=0) # dimension is [num_sampled_points, 3]
+        instance = mesh_path.split('/')[-1][:-4]
+        torch.save(points, os.path.join(output_dir, "{}.pt".format(instance)))
+
+
     def render_and_save(self, mesh_path, output_dir):
         instance = mesh_path.split('/')[-1][:-4]
         azims = self.cfg["semantic_dis_training"]["dis_mv_azims"]
@@ -184,110 +208,11 @@ class RealMultiviewDataset(Dataset):
         R, T = look_at_view_transform(dists, elevs, azims)
         mesh = general_utils.load_untextured_mesh(mesh_path, self.device)
         meshes = mesh.extend(num_azims)
+        lighting_mode = self.cfg["semantic_dis_training"]["dis_mv_lighting_mode"]
         renders = general_utils.render_mesh(meshes, R, T, self.device, img_size=self.cfg["semantic_dis_training"]["dis_mv_img_size"], 
-                                            silhouette=self.cfg["semantic_dis_training"]["dis_mv_render_sil"], custom_lights="ambient")
+                                            silhouette=self.cfg["semantic_dis_training"]["dis_mv_render_sil"], custom_lights=lighting_mode)
         for i, render in enumerate(renders):
             img_render_rgb = (render[..., :3].cpu().numpy()*255).astype(int) 
             rgb_render_filename = "{}_{:03d}.jpg".format(instance,i)
             cv2.imwrite(os.path.join(output_dir, rgb_render_filename), img_render_rgb)
         
-
-    def __len__(self):
-        return len(self.instances)
-        
-
-
-dis_input_PIL_transforms= transforms.Compose([
-    transforms.ColorJitter(brightness=0.1, contrast=0, saturation=0, hue=0),
-    transforms.RandomPerspective(distortion_scale=0.1, p=0.25, interpolation=3, fill=0),
-    transforms.RandomAffine(10, translate=(0.1,0.1), scale=(0.70,1.3), shear=[-7,7,-7,7], fillcolor=(0,0,0)),
-    transforms.RandomHorizontalFlip(p=0.5),
-])
-
-
-class ShapenetRendersDataset(Dataset):
-    """Dataset used for shapenet renders. Each datum is a random shapenet render"""
-    def __init__(self, cfg):
-
-        sil_dis_input = cfg["semantic_dis_training"]["sil_dis_input"]
-        if sil_dis_input:
-            real_dataset_dir = cfg["semantic_dis_training"]["real_dataset_dir_sil"]
-        else:
-            real_dataset_dir = cfg["semantic_dis_training"]["real_dataset_dir"]
-
-        self.real_image_paths = glob(os.path.join(real_dataset_dir, "*.jpg"))
-        input_img_size = cfg["semantic_dis_training"]["dis_input_size"]
-
-        transform_dis_inputs = cfg["semantic_dis_training"]["transform_dis_inputs"]
-        if transform_dis_inputs:
-            self.img_transforms = transforms.Compose([
-                transforms.Resize((input_img_size,input_img_size)),
-                dis_input_PIL_transforms,
-                transforms.ToTensor(),
-            ])
-        else:
-            self.img_transforms = transforms.Compose([
-                transforms.Resize((input_img_size,input_img_size)),
-                transforms.ToTensor(),
-            ])
-            
-    
-    def __len__(self):
-        return len(self.real_image_paths)
-
-    def __getitem__(self, idx):
-        data = self.img_transforms(Image.open(self.real_image_paths[idx]).convert("RGB"))
-        return data
-
-
-class ShapenetPointsDataset(Dataset):
-
-    def __init__(self, cfg):
-
-        sampled_points_path = cfg["semantic_dis_training"]["sampled_points_path"]
-        self.DEBUG_single_real = cfg["semantic_dis_training"]["DEBUG_single_real"]
-        self.cached_sampled_points = torch.load(sampled_points_path)
-        # TODO: check alignment with fake chairs
-
-
-    def __len__(self):
-        return self.cached_sampled_points.shape[0]
-
-
-    def __getitem__(self, idx):
-        if self.DEBUG_single_real:
-            return self.cached_sampled_points[0]
-        else:
-            return self.cached_sampled_points[idx]
-
-
-class FromScratchShapenetPointsDataset(Dataset):
-    # NOTE: this dataset is very slow (since shapenet meshes have many vertices/faces, it's slow to open and sample points from)
-    def __init__(self, cfg):
-        
-        real_image_paths_cache_path = "caches/real_shapes_paths.p"
-
-        if cfg["semantic_dis_training"]["recompute_cache"] or not os.path.exists(real_image_paths_cache_path):
-            real_shapes_dir = cfg["semantic_dis_training"]["real_shapes_dir"]
-            self.real_shapes_paths = list(Path(real_shapes_dir).rglob('model_watertight.obj'))
-            pickle.dump(self.real_shapes_paths, open(real_image_paths_cache_path, 'wb'))
-        else:
-            self.real_shapes_paths = pickle.load(open(real_image_paths_cache_path, 'rb'))
-
-        self.cpu_device = torch.device("cpu")
-        self.mesh_num_verts = cfg["semantic_dis_training"]["mesh_num_verts"]
-
-
-    def __len__(self):
-        return len(self.real_shapes_paths)
-
-
-    def __getitem__(self, idx):
-        mesh = utils.load_untextured_mesh(self.real_shapes_paths[idx], self.cpu_device)
-
-        points = pytorch3d.ops.sample_points_from_meshes(mesh, num_samples=self.mesh_num_verts)
-        # by remove batch dimension
-        points = torch.squeeze(points, dim=0)
-        # TODO: normalize, either here or at dis loss func?
-
-        return points

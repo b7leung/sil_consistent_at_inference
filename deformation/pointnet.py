@@ -102,6 +102,8 @@ class SimplePointnet(nn.Module):
         return c
 
 
+
+
 class ResnetPointnet(nn.Module):
     ''' PointNet-based encoder network with ResNet blocks.
 
