@@ -17,10 +17,11 @@ from deformation.deformation_net import DeformationNetwork
 from deformation.deformation_net_graph_convolutional_full import DeformationNetworkGraphConvolutionalFull
 
 from utils import general_utils
-from utils.datasets import GenerationDataset, ShapenetRendersDataset, ShapenetPointsDataset, RealMultiviewDataset
+from utils.datasets import GenerationDataset, RealDataset
 #from deformation.semantic_discriminator_net_renders import RendersSemanticDiscriminatorNetwork
 from deformation.semantic_discriminator_net_points import PointsSemanticDiscriminatorNetwork
 from deformation.multiview_semantic_discriminator_network import MultiviewSemanticDiscriminatorNetwork
+from deformation.deformation_net_fc_vertex_aligned import DeformationNetworkFcVertexAligned
 from utils.datasets import gen_data_collate
 from deformation.forward_pass import batched_forward_pass, compute_sem_dis_logits
 from utils.visualization_tools import save_tensor_img
@@ -41,6 +42,7 @@ class AdversarialDiscriminatorTrainer():
         self.gen_epochs_per_iteration = self.cfg["semantic_dis_training"]["gen_epochs_per_iteration"]
         self.early_stop_dis_acc = self.cfg["semantic_dis_training"]["early_stop_dis_acc"]
         self.save_model_every = self.cfg["semantic_dis_training"]["save_model_every"]
+        self.beta1 = self.cfg["semantic_dis_training"]["beta1"]
 
         # creating output dir
         self.training_output_dir = os.path.join(self.cfg['semantic_dis_training']['output_dir'], "{}_{}".format(time.strftime("%Y_%m_%d--%H_%M_%S"), exp_name))
@@ -104,6 +106,9 @@ class AdversarialDiscriminatorTrainer():
         elif deform_net_type == "gcn_full":
             deform_net = DeformationNetworkGraphConvolutionalFull(self.cfg, self.device)
             gen_lr = self.cfg["semantic_dis_training"]["gen_gcn_lr"]
+        elif deform_net_type == "fc_vert_aligned":
+            deform_net = DeformationNetworkFcVertexAligned(self.cfg, self.device)
+            gen_lr = self.cfg["semantic_dis_training"]["gen_gcn_lr"]
         else:
             raise ValueError("generator deform net type not recognized")
 
@@ -111,7 +116,7 @@ class AdversarialDiscriminatorTrainer():
             deform_net.load_state_dict(torch.load(self.gen_weight_path))
         deform_net.to(self.device)
         gen_decay = self.cfg["semantic_dis_training"]["gen_decay"]
-        deform_optimizer = optim.Adam(deform_net.parameters(), lr=gen_lr, weight_decay=gen_decay)
+        deform_optimizer = optim.Adam(deform_net.parameters(), lr=gen_lr, weight_decay=gen_decay, betas=(self.beta1, 0.999))
 
         return generation_loader, deform_net, deform_optimizer
 
@@ -130,13 +135,13 @@ class AdversarialDiscriminatorTrainer():
             #optimizer dis_points_lr
             lr = self.cfg["semantic_dis_training"]["dis_renders_lr"]
             decay = self.cfg["semantic_dis_training"]["dis_renders_decay"]
-            semantic_dis_optimizer = optim.Adam(semantic_dis_net.parameters(), lr=lr, weight_decay=decay)
+            semantic_dis_optimizer = optim.Adam(semantic_dis_net.parameters(), lr=lr, weight_decay=decay, betas=(self.beta1, 0.999))
         
         elif dis_type == "points":
             # dataloader
             #TODO: normalize + data aug on point sets?
-            shapenet_points_dataset = ShapenetPointsDataset(self.cfg)
-            semantic_dis_loader = torch.utils.data.DataLoader(shapenet_points_dataset, batch_size=self.batch_size, num_workers=self.num_workers, shuffle=True)
+            real_dataset = RealDataset(self.cfg, self.device)
+            semantic_dis_loader = torch.utils.data.DataLoader(real_dataset, batch_size=self.batch_size, num_workers=self.num_workers, shuffle=True)
             #network
             semantic_dis_net = PointsSemanticDiscriminatorNetwork(self.cfg)
             if self.dis_weight_path != "":
@@ -145,12 +150,12 @@ class AdversarialDiscriminatorTrainer():
             #optimizer
             lr = self.cfg["semantic_dis_training"]["dis_points_lr"]
             decay = self.cfg["semantic_dis_training"]["dis_points_decay"]
-            semantic_dis_optimizer = optim.Adam(semantic_dis_net.parameters(), lr=lr, weight_decay=decay)
+            semantic_dis_optimizer = optim.Adam(semantic_dis_net.parameters(), lr=lr, weight_decay=decay, betas=(self.beta1, 0.999))
 
         elif dis_type == "multiview":
             # dataloader
-            real_multiview_dataset = RealMultiviewDataset(self.cfg, self.device)
-            semantic_dis_loader = torch.utils.data.DataLoader(real_multiview_dataset, batch_size=self.batch_size, num_workers=self.num_workers, shuffle=True)
+            real_dataset = RealDataset(self.cfg, self.device)
+            semantic_dis_loader = torch.utils.data.DataLoader(real_dataset, batch_size=self.batch_size, num_workers=self.num_workers, shuffle=True)
             # network
             semantic_dis_net = MultiviewSemanticDiscriminatorNetwork(self.cfg)
             if self.dis_weight_path != "":
@@ -159,7 +164,7 @@ class AdversarialDiscriminatorTrainer():
             # optimizer
             lr = self.cfg["semantic_dis_training"]["dis_mv_lr"]
             decay = self.cfg["semantic_dis_training"]["dis_mv_decay"]
-            semantic_dis_optimizer = optim.Adam(semantic_dis_net.parameters(), lr=lr, weight_decay=decay)
+            semantic_dis_optimizer = optim.Adam(semantic_dis_net.parameters(), lr=lr, weight_decay=decay, betas=(self.beta1, 0.999))
 
         else:
             raise ValueError("dis_type must be renders or pointnet")
@@ -196,8 +201,8 @@ class AdversarialDiscriminatorTrainer():
                         training_df["semantic_dis"] = training_df["semantic_dis"].append(curr_train_info, ignore_index=True)
                         continue
 
-                    semantic_dis_net.train()
-                    deform_net.eval() # not sure if supposed to set this
+                    #semantic_dis_net.train()
+                    #deform_net.eval() # not sure if supposed to set this
                     semantic_dis_optimizer.zero_grad()
 
                     # computing real discriminator logits
@@ -258,8 +263,8 @@ class AdversarialDiscriminatorTrainer():
             for gen_epoch in tqdm(range(self.gen_epochs_per_iteration), desc="Iteration {} Generator Trainings".format(iter_idx), leave=False):
                 for batch_idx, gen_batch in enumerate(tqdm(generation_loader, desc="Generator Epoch {} Batches".format(gen_epoch), leave=False)):
 
-                    deform_net.train()
-                    semantic_dis_net.eval()
+                    #deform_net.train()
+                    #semantic_dis_net.eval()
                     deform_optimizer.zero_grad()
 
                     loss_dict, _, _ = batched_forward_pass(self.cfg, self.device, deform_net, semantic_dis_net, gen_batch, compute_losses=True)
@@ -279,11 +284,12 @@ class AdversarialDiscriminatorTrainer():
 
             # save network parameters and evaluate meshes using current network
             if iter_idx % self.save_model_every == 0 or iter_idx == self.total_training_iters-1:
-                curr_gen_weights_path = os.path.join(self.training_output_dir, "deform_net_weights_{}.pt".format(iter_idx))
-                curr_dis_weights_path = os.path.join(self.training_output_dir, "semantic_dis_net_weights_{}.pt".format(iter_idx))
+                iter_idx_str = "{num:0{pad}}".format(num=iter_idx, pad=len(str(self.total_training_iters)))
+                curr_gen_weights_path = os.path.join(self.training_output_dir, "deform_net_weights_{}.pt".format(iter_idx_str))
+                curr_dis_weights_path = os.path.join(self.training_output_dir, "semantic_dis_net_weights_{}.pt".format(iter_idx_str))
                 torch.save(deform_net.state_dict(), curr_gen_weights_path)
                 torch.save(semantic_dis_net.state_dict(), curr_dis_weights_path)
-                self.eval(deform_net, semantic_dis_net, "eval_{}".format(iter_idx))
+                self.eval(deform_net, semantic_dis_net, "eval_{}".format(iter_idx_str))
 
 
 

@@ -121,7 +121,6 @@ class GenerationDataset(Dataset):
         return data
 
 
-
 class RealDataset(Dataset):
 
     def __init__(self, cfg, device):
@@ -190,7 +189,7 @@ class RealDataset(Dataset):
 
     
     def extract_points(self, mesh_path, output_dir):
-        mesh = general_utils.load_untextured_mesh(mesh_path, self.device)
+        mesh = general_utils.load_untextured_mesh(mesh_path, torch.device("cpu"))
 
         mesh_num_verts = self.cfg["semantic_dis_training"]["mesh_num_verts"]
         points = pytorch3d.ops.sample_points_from_meshes(mesh, num_samples=mesh_num_verts)
