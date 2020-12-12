@@ -26,16 +26,15 @@ semantic_dis_training:
   # basic setup configs
   use_input_mesh_cache: true
   recompute_input_mesh_cache: false
-  save_model_every: 1 # save and evaluate model every n adversarial iterations
+  save_model_every: 100 # save and evaluate model every n adversarial iterations
   mesh_num_verts: 642
 
   # training details
   batch_size: 16
-  adv_iterations: 150
-  dis_epochs_per_iteration: 1
-  gen_epochs_per_iteration: 1
+  adv_iterations: 25000
+  dis_steps_per_iteration: 1
+  gen_steps_per_iteration: 1
   real_label_offset: 0
-  early_stop_dis_acc: -1 # stops training of discriminator early if avg acc of last 10 batches is >= this threshold, in [0,1]. to disable,set to -1
 
   # generator options
   deform_net_type: "gcn_full" # {pointnet, gcn_full, fc_vert_aligned}

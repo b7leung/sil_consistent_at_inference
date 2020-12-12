@@ -26,19 +26,18 @@ semantic_dis_training:
   # basic setup configs
   use_input_mesh_cache: true
   recompute_input_mesh_cache: false
-  save_model_every: 1 # save and evaluate model every n adversarial iterations
+  save_model_every: 100 # save and evaluate model every n adversarial iterations
   mesh_num_verts: 642
 
   # training details
   batch_size: 16
-  adv_iterations: 150
-  dis_epochs_per_iteration: 1
-  gen_epochs_per_iteration: 1
+  adv_iterations: 25000
+  dis_steps_per_iteration: 5
+  gen_steps_per_iteration: 1
   real_label_offset: 0
-  early_stop_dis_acc: -1 # stops training of discriminator early if avg acc of last 10 batches is >= this threshold, in [0,1]. to disable,set to -1
 
   # generator options
-  deform_net_type: "gcn_full" # {pointnet, gcn_full, fc_vert_aligned}
+  deform_net_type: "fc_vert_aligned" # {pointnet, gcn_full, fc_vert_aligned}
   gen_dir_mesh: "data/adversarial/sphere_points_test/fake_meshes"
   gen_dir_img: "data/adversarial/sphere_points_test/fake_images"
   gen_poses: "data/adversarial/sphere_points_test/poses.p"
@@ -55,7 +54,7 @@ semantic_dis_training:
 
   # for dis_type = points
   dis_points_lr: 0.00008
-  dis_points_decay: 0
+  dis_points_decay: 0.001
   dis_points_spectral_norm: True
   dis_points_pooling: "max" # type of pooling to use in pointnet, in {max, avg}
 

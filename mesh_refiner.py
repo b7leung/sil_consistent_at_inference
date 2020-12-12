@@ -9,6 +9,7 @@ import pandas as pd
 from deformation.deformation_net import DeformationNetwork
 from deformation.deformation_net_graph_convolutional_full import DeformationNetworkGraphConvolutionalFull
 from deformation.forward_pass import batched_forward_pass
+from deformation.semantic_discriminator_net_points import PointsSemanticDiscriminatorNetwork
 
 
 class MeshRefiner():
@@ -38,7 +39,7 @@ class MeshRefiner():
         if deform_net_type == "pointnet":
             deform_net = DeformationNetwork(self.cfg, num_verts, self.device)
         elif deform_net_type == "gcn_full":
-            deform_net = DeformationNetworkGraphConvolutionalFull(self.cfg, self.cfg["semantic_dis_training"]["mesh_num_verts"], self.device)
+            deform_net = DeformationNetworkGraphConvolutionalFull(self.cfg, self.device)
         else:
             raise ValueError("generator deform net type not recognized")
         if self.gen_weight_path != "":
@@ -53,6 +54,8 @@ class MeshRefiner():
         if dis_type == "renders":
             semantic_dis_net = RendersSemanticDiscriminatorNetwork(self.cfg)
 
+        elif dis_type == "points":
+            semantic_dis_net = PointsSemanticDiscriminatorNetwork(self.cfg)
         else:
             raise ValueError("dis_type must be renders or pointnet")
         if self.dis_weight_path != "":

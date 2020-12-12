@@ -49,7 +49,8 @@ semantic_dis_training:
   recompute_input_mesh_cache: false
   dis_weight_path: ""
   gen_weight_path: ""
-  save_model_every: 200 # save model every n adversarial iterations
+  save_every: 100 # save model every n adversarial iterations
+  save_model: true
   num_mesh_eval: 10
   mesh_num_verts: 1500
 
@@ -58,11 +59,10 @@ semantic_dis_training:
   real_label_offset: 0.05
   label_noise: 0
   batch_size: 16
-  adv_iterations: 10
-  dis_epochs_per_iteration: 30
-  gen_epochs_per_iteration: 100
+  adv_iterations: 5000
+  dis_steps_per_iteration: 1
+  gen_steps_per_iteration: 1
   num_batches_gen_train: -1
-  early_stop_dis_acc: -1 # stops training of discriminator early if avg acc of last 10 batches is >= this threshold, in [0,1]. to disable,set to -1
   beta1: 0.5
 
   # generator options
@@ -75,7 +75,7 @@ semantic_dis_training:
   gen_decay: 0.0
 
   # discriminator options 
-  dis_type: "multiview" # type of discriminator input, in {renders, points, multiview}
+  dis_type: "points" # type of discriminator input, in {renders, points, multiview}
   dis_real_shapes_dir: ""
   dis_data_recompute: True
   dis_data_use_cache: True
@@ -85,7 +85,8 @@ semantic_dis_training:
   recompute_cache: false
   dis_points_lr: 0.00001
   dis_points_decay: 0.01
-  dis_points_encoder: "rgan" # in {pointnet, fc, rgan}
+  dis_points_spectral_norm: True
+  dis_points_pooling: "max" # type of pooling to use in pointnet, in {max, avg}
 
   # for dis_type = multiview
   dis_mv_azims: [0,45,90,135,180,225,270,315]

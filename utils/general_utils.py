@@ -133,7 +133,7 @@ def load_untextured_mesh(mesh_path, device):
 
 
 # for rendering a single image
-def render_mesh(mesh, R, T, device, img_size=512, silhouette=False, custom_lights=""):
+def render_mesh(mesh, R, T, device, img_size=512, silhouette=False, custom_lights="", differentiable=True):
     cameras = OpenGLPerspectiveCameras(device=device, R=R, T=T)
 
     if silhouette:
@@ -168,17 +168,30 @@ def render_mesh(mesh, R, T, device, img_size=512, silhouette=False, custom_light
         else:
             lights = custom_lights
 
-        renderer = MeshRenderer(
-            rasterizer=MeshRasterizer(
-                cameras=cameras, 
-                raster_settings=raster_settings
-            ),
-            shader=SoftPhongShader(
-                device=device, 
-                cameras=cameras,
-                lights=lights
+        if differentiable:
+            renderer = MeshRenderer(
+                rasterizer=MeshRasterizer(
+                    cameras=cameras, 
+                    raster_settings=raster_settings
+                ),
+                shader=SoftPhongShader(
+                    device=device, 
+                    cameras=cameras,
+                    lights=lights
+                )
             )
-        )
+        else:
+            renderer = MeshRenderer(
+                rasterizer=MeshRasterizer(
+                    cameras=cameras, 
+                    raster_settings=raster_settings
+                ),
+                shader=HardPhongShader(
+                    device=device, 
+                    cameras=cameras,
+                    lights=lights
+                )
+            )
 
     rendered_images = renderer(mesh, cameras=cameras)
     return rendered_images
@@ -276,3 +289,20 @@ def weights_init_normal(m, var=0.0001):
         # m.bias.data should be 0
         m.bias.data.fill_(0)
 
+
+class InfiniteDataLoader():
+    # based on https://discuss.pytorch.org/t/infinite-dataloader/17903/11
+    # a wrapper for a dataloader, which allows batches to be drawn from it infinitely.
+    # the order will be random if the dataloder is set to shuffle=True; else it will not be random
+    # it's also recommended that drop_last=True if multiple infinite dataloaders are being used together (eg for a GAN)
+    def __init__(self, dataloader):
+        self.dataloader = dataloader
+        self.dataloader_iter = iter(self.dataloader)
+    
+    def get_batch(self):
+        try:
+            data = next(self.dataloader_iter)
+        except StopIteration:
+            self.dataloader_iter = iter(self.dataloader)
+            data = next(self.dataloader_iter)
+        return data
