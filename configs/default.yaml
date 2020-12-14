@@ -49,10 +49,12 @@ semantic_dis_training:
   recompute_input_mesh_cache: false
   dis_weight_path: ""
   gen_weight_path: ""
-  save_every: 100 # save model every n adversarial iterations
-  save_model: true
-  num_mesh_eval: 10
+  save_model_every: 100 # save model every n adversarial iterations
+  save_samples_every: 10 # save and evaluate samples every n adversarial iterations
+  num_mesh_batch_eval: 1
   mesh_num_verts: 1500
+  num_verts_tolerance: 0 # tolerance for points input to generator
+  normalize_data: true # normalize pointclouds (real and fake) by centering and contraining to sphere of diameter 1
 
   # training details
   gen_small_weights_init: false # note: this is overided if gen_weight_path is specified

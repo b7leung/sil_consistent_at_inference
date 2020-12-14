@@ -25,6 +25,8 @@ from pytorch3d.renderer import (
     BlendParams,
     softmax_rgb_blend
 )
+import plotly.express as px
+import plotly
 
 
 # General config
@@ -103,6 +105,23 @@ def update_recursive(dict1, dict2):
         else:
             dict1[k] = v
 
+
+# returns a list of all cfgs inherited
+def get_all_inherited_cfgs(highest_cfg_path):
+    curr_cfg_path = highest_cfg_path
+    all_inherited_cfg_paths = [highest_cfg_path]
+    curr_cfg_inherits = True
+    while curr_cfg_inherits:
+        with open(curr_cfg_path, 'r') as f:
+            curr_cfg = yaml.load(f, Loader=yaml.FullLoader)
+            if "inherit_from" in curr_cfg:
+                parent_cfg_path = curr_cfg["inherit_from"]
+                all_inherited_cfg_paths.append(parent_cfg_path)
+                curr_cfg_path = parent_cfg_path
+            else:
+                curr_cfg_inherits = False
+    return all_inherited_cfg_paths
+                
 
 # given the path of a dir with .obj meshes, and path of a dir with .png images
 def get_instances(input_dir_mesh, input_dir_img=None):
@@ -306,3 +325,43 @@ class InfiniteDataLoader():
             self.dataloader_iter = iter(self.dataloader)
             data = next(self.dataloader_iter)
         return data
+
+
+def normalize_pointcloud(pc):
+    # centering
+    norm_pc = pc - np.mean(pc, axis=0)
+    # scaling to unit
+    max_vert_values = np.amax(pc, axis=0)
+    min_vert_values = np.amin(pc, axis=0)
+    max_width = np.amax(max_vert_values-min_vert_values)
+    norm_pc = norm_pc * (1/max_width)
+    return norm_pc
+
+
+# does not work for batch; only [n_verts,3]
+def normalize_pointcloud_tensor(pc):
+    axis = 0
+    # centering
+    norm_pc = pc - torch.mean(pc, axis=axis)
+    # scaling to unit
+    max_vert_values = torch.max(pc, axis).values
+    min_vert_values = torch.min(pc, axis).values
+    max_width = torch.max(max_vert_values-min_vert_values)
+    norm_pc = norm_pc * (1/max_width)
+    return norm_pc
+
+
+# plots a [n_verts, 3] numpy/tensor pointcloud
+def plot_pointcloud(pointcloud, normalized=True):
+    if normalized:
+        fig = px.scatter_3d(x=pointcloud[:,0], y=pointcloud[:,1], z = pointcloud[:,2], opacity=0.7, range_x=[-0.5,0.5], range_y=[-0.5,0.5], range_z=[-0.5,0.5])
+    else:
+        fig = px.scatter_3d(x=pointcloud[:,0], y=pointcloud[:,1], z = pointcloud[:,2], opacity=0.7)
+
+    # based on https://stackoverflow.com/questions/61371324/scatter-3d-in-plotly-express-colab-notebook-is-not-plotting-with-equal-axes
+    fig.update_layout(scene=dict(aspectmode="cube"))
+    fig.update_traces(marker=dict(size=5, line={"width":1}))
+    fig.show()
+
+
+

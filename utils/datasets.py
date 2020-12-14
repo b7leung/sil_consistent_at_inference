@@ -46,6 +46,7 @@ class GenerationDataset(Dataset):
         self.dataset_meshes_list = general_utils.get_instances(self.input_dir_mesh, self.input_dir_img)
         self.gen_poses = cfg['semantic_dis_training']['gen_poses']
         self.cached_pred_poses = pickle.load(open(self.gen_poses, "rb"))
+        self.normalize = cfg['semantic_dis_training']['normalize_data']
 
         self.num_batches_gen_train = cfg["semantic_dis_training"]["num_batches_gen_train"]
         self.batch_size = cfg["semantic_dis_training"]["batch_size"]
@@ -64,7 +65,7 @@ class GenerationDataset(Dataset):
         self.input_mesh_cache_path = os.path.join(cfg["semantic_dis_training"]["cache_dir"],"generation_dataset_cache_{}.pt".format(len(self.dataset_meshes_list)))
         if self.recompute_cache or (self.use_cache and not os.path.exists(self.input_mesh_cache_path)):
             print("Caching generation dataset...")
-            self.cached_data = [self.getitem_scratch(i) for i in tqdm(range(self.__len__()))]
+            self.cached_data = [self.getitem_scratch(i) for i in tqdm(range(len(self.dataset_meshes_list)))]
             if not os.path.exists(cfg["semantic_dis_training"]["cache_dir"]):
                 os.makedirs(cfg["semantic_dis_training"]["cache_dir"])
             torch.save(self.cached_data, self.input_mesh_cache_path)
@@ -74,17 +75,35 @@ class GenerationDataset(Dataset):
             # gotcha for case where num_batches_gen_train has changed
             if len(self.cached_data) != len(self.dataset_meshes_list):
                 raise ValueError("Cache length {} != requested length {}. Try recomputing cache with current settings.".format(len(self.cached_data), len(self.dataset_meshes_list)))
+        
+        # filtering based on number of vertices
+        num_verts_tolerance = cfg['semantic_dis_training']["num_verts_tolerance"]
+        num_verts_target = cfg['semantic_dis_training']["mesh_num_verts"]
+        valid_data_idxs = []
+        for i, data in enumerate(self.cached_data):
+            num_verts = data["mesh_verts"].shape[0]
+            if (num_verts >= (num_verts_target - num_verts_tolerance)) and (num_verts <= (num_verts_target + num_verts_tolerance)):
+                valid_data_idxs.append(i)
+        old_dataset_length = len(self.cached_data)
+        self.cached_data = [self.cached_data[i] for i in range(len(self.cached_data)) if i in valid_data_idxs]
+        print("Reduced dataset size from {} -> {} due to filter on mesh number of vertices.".format(old_dataset_length, len(self.cached_data)))
 
     
     def __len__(self):
-        return len(self.dataset_meshes_list)
+        return len(self.cached_data)
 
 
     def __getitem__(self, idx):
+
         if self.use_cache:
-            return self.cached_data[idx]
+            item = self.cached_data[idx]
         else:
-            return self.getitem_scratch(idx)
+            item = self.getitem_scratch(idx)
+        
+        if self.normalize:
+            item["mesh"].update_padded(general_utils.normalize_pointcloud_tensor(item["mesh"].verts_padded()))
+
+        return item
 
 
     def getitem_scratch(self, idx):
@@ -119,6 +138,81 @@ class GenerationDataset(Dataset):
         data["pose"] = torch.tensor([pred_dist, pred_elev, pred_azim])
 
         return data
+
+
+class BenchmarkDataset(Dataset):
+    def __init__(self, cfg, uniform=False, classification=True, normalize=True):
+        self.npoints = cfg['semantic_dis_training']['mesh_num_verts']
+        self.root = cfg['semantic_dis_training']['dis_real_shapes_dir']
+        self.catfile = os.path.join(self.root, "synsetoffset2category.txt")
+        class_choice = cfg['semantic_dis_training']['dis_class_name']
+        self.cat = {}
+        self.uniform = uniform
+        self.classification = classification
+        self.normalize = normalize
+
+        with open(self.catfile, 'r') as f:
+            for line in f:
+                ls = line.strip().split()
+                self.cat[ls[0]] = ls[1]
+                
+        if not class_choice is  None:
+            self.cat = {k:v for k,v in self.cat.items() if k in class_choice}
+
+        self.meta = {}
+        for item in self.cat:
+            self.meta[item] = []
+            dir_point = os.path.join(self.root, self.cat[item], 'points')
+            dir_seg = os.path.join(self.root, self.cat[item], 'points_label')
+            dir_sampling = os.path.join(self.root, self.cat[item], 'sampling')
+
+            fns = sorted(os.listdir(dir_point))
+
+            for fn in fns:
+                token = (os.path.splitext(os.path.basename(fn))[0])
+                self.meta[item].append((os.path.join(dir_point, token + '.pts'), os.path.join(dir_seg, token + '.seg'), os.path.join(dir_sampling, token + '.sam')))
+
+        self.datapath = []
+        for item in self.cat:
+            for fn in self.meta[item]:
+                self.datapath.append((item, fn[0], fn[1], fn[2]))
+
+
+        self.classes = dict(zip(sorted(self.cat), range(len(self.cat))))
+        print(self.classes)
+        self.num_seg_classes = 0
+        if not self.classification:
+            for i in range(len(self.datapath)//50):
+                l = len(np.unique(np.loadtxt(self.datapath[i][-1]).astype(np.uint8)))
+                if l > self.num_seg_classes:
+                    self.num_seg_classes = l
+
+    def __getitem__(self, index):
+        fn = self.datapath[index]
+        cls = self.classes[self.datapath[index][0]]
+        point_set = np.loadtxt(fn[1]).astype(np.float32)
+        seg = np.loadtxt(fn[2]).astype(np.int64)
+
+        if self.uniform:
+            choice = np.loadtxt(fn[3]).astype(np.int64)
+            assert len(choice) == self.npoints, "Need to match number of choice(2048) with number of vertices."
+        else:
+            choice = np.random.randint(0, len(seg), size=self.npoints)
+
+        point_set = point_set[choice]
+        seg = seg[choice]
+        point_set = torch.from_numpy(point_set)
+        if self.normalize:
+            point_set = general_utils.normalize_pointcloud_tensor(point_set)
+        seg = torch.from_numpy(seg)
+        cls = torch.from_numpy(np.array([cls]).astype(np.int64))
+        if self.classification:
+            return point_set
+        else:
+            return point_set
+
+    def __len__(self):
+        return len(self.datapath)
 
 
 class RealDataset(Dataset):

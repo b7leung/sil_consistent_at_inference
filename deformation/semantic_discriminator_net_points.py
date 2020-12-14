@@ -2,57 +2,27 @@ import random
 
 import torch
 import torch.nn as nn
+from torch.nn import functional as F
 
-
-#from .pointnet import SimplePointnet, ResnetPointnet, ResnetPointnetExtended
 
 class PointsSemanticDiscriminatorNetwork(nn.Module):
-
-    # A discriminator for point clouds
-    # In particular, feeds the point set into a pointnet to obtain a latent vector, then FC layers classify it.
+    # based on TreeGAN
     def __init__(self, cfg):
         super().__init__()
 
-        self.num_vertices = cfg["semantic_dis_training"]["mesh_num_verts"]
-        self.pooling_type = cfg["semantic_dis_training"]["dis_points_pooling"]
-        self.spectral_norm = cfg["semantic_dis_training"]["dis_points_spectral_norm"]
+        features = [3, 64, 128, 256, 512, 1024]
+        self.layer_num = len(features)-1
 
-        if self.pooling_type == "max":
-            pooling_func = nn.MaxPool1d(self.num_vertices)
-        elif self.pooling_type == "avg":
-            pooling_func = nn.AvgPool1d(self.num_vertices)
-        else:
-            raise ValueError("pooling type must be avg or max")
+        self.fc_layers = nn.ModuleList([])
+        for inx in range(self.layer_num):
+            self.fc_layers.append(nn.Conv1d(features[inx], features[inx+1], kernel_size=1, stride=1))
 
-        if self.spectral_norm:
-            self.pointnet_discriminator = nn.Sequential(
-                nn.utils.spectral_norm(nn.Conv1d(3, 64, kernel_size=1, stride=1)),
-                nn.LeakyReLU(),
-                nn.utils.spectral_norm(nn.Conv1d(64, 128, kernel_size=1, stride=1)),
-                nn.LeakyReLU(),
-                nn.utils.spectral_norm(nn.Conv1d(128, 1024, kernel_size=1, stride=1)),
-                nn.LeakyReLU(),
-                pooling_func,
-                nn.Flatten(),
-                nn.utils.spectral_norm(nn.Linear(1024, 512)),
-                nn.LeakyReLU(),
-                nn.utils.spectral_norm(nn.Linear(512, 1))
-            )
-        else:
-            self.pointnet_discriminator = nn.Sequential(
-                nn.Conv1d(3, 64, kernel_size=1, stride=1),
-                nn.LeakyReLU(),
-                nn.Conv1d(64, 128, kernel_size=1, stride=1),
-                nn.LeakyReLU(),
-                nn.Conv1d(128, 1024, kernel_size=1, stride=1),
-                nn.LeakyReLU(),
-                pooling_func,
-                nn.Flatten(),
-                nn.Linear(1024, 512),
-                nn.LeakyReLU(),
-                nn.Linear(512, 1)
-            )
-        
+        self.leaky_relu = nn.LeakyReLU(negative_slope=0.2)
+        self.final_layer = nn.Sequential(nn.Linear(features[-1], features[-1]),
+                                         nn.Linear(features[-1], features[-2]),
+                                         nn.Linear(features[-2], features[-2]),
+                                         nn.Linear(features[-2], 1))
+
     
     # assumes vertices is batch size 1
     # ensures vertices is >= target_vertex_num
@@ -69,12 +39,19 @@ class PointsSemanticDiscriminatorNetwork(nn.Module):
         return vertices
 
 
-    # mesh_vertices (tensor): a batch_size x num_vertices x 3 tensor of vertices (ie, a pointcloud)
+    # mesh_vertices (tensor): a [batch_size, num_vertices, 3] tensor of vertices (ie, a pointcloud)
     # output: a [batch_size, 1] tensor of raw logits
-    # TODO: make this work with a variable number of mesh vertices
     def forward(self, mesh_vertices):
 
-        mesh_vertices = torch.transpose(mesh_vertices, 1, 2)
-        out = self.pointnet_discriminator(mesh_vertices)
+
+        feat = mesh_vertices.transpose(1,2)
+        vertex_num = feat.size(2)
+
+        for inx in range(self.layer_num):
+            feat = self.fc_layers[inx](feat)
+            feat = self.leaky_relu(feat)
+
+        out = F.max_pool1d(input=feat, kernel_size=vertex_num).squeeze(-1)
+        out = self.final_layer(out) # (B, 1)
 
         return out

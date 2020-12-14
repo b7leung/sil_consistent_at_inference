@@ -1,0 +1,8 @@
+inherit_from: configs/test.yaml
+
+semantic_dis_training:
+  gen_dir_mesh: "../occupancy_networks/out/pytorch3d_renders/04379243/generation/meshes"
+  gen_dir_img: "data/input_images/pytorch3d_shapenet_renders/04379243/rgba"
+  gen_poses: "data/input_images/pytorch3d_shapenet_renders/04379243/rgba/renders_camera_params.pt"
+
+  dis_class_name: "Table"

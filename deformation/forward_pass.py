@@ -88,13 +88,10 @@ def compute_sem_dis_logits(meshes_batch, semantic_discriminator_net, device, cfg
 # NOTE: forward_pass_info is still tracked and in gpu
 def batched_forward_pass(cfg, device, deform_net, semantic_dis_net, input_batch, compute_losses=True):
     # TODO: fix this
-    real_labels_dist_gen = torch.distributions.Uniform(torch.tensor([1.0]), torch.tensor([1.0]))
+    #real_labels_dist_gen = torch.distributions.Uniform(torch.tensor([1.0]), torch.tensor([1.0]))
     forward_pass_info = {}
 
     # deforming mesh
-    # TODO: clean up double .to()
-    mesh_batch = input_batch["mesh"].to(device)
-
     if cfg["training"]["vertex_asym"]:
         deformation_output, asym_conf_scores = deform_net(input_batch)
         forward_pass_info["asym_conf_scores"] = asym_conf_scores
@@ -103,6 +100,8 @@ def batched_forward_pass(cfg, device, deform_net, semantic_dis_net, input_batch,
         asym_conf_scores = None
         
     deformation_output = deformation_output.reshape((-1,3))
+    # TODO: clean up double .to()
+    mesh_batch = input_batch["mesh"].to(device)
     deformed_meshes = mesh_batch.offset_verts(deformation_output)
 
     # computing network's losses
@@ -141,8 +140,9 @@ def batched_forward_pass(cfg, device, deform_net, semantic_dis_net, input_batch,
 
         if cfg["training"]["semantic_dis_lam"] > 0:
             sem_dis_logits, _ = compute_sem_dis_logits(deformed_meshes, semantic_dis_net, device, cfg)
-            real_labels = real_labels_dist_gen.sample((sem_dis_logits.shape[0],1)).squeeze(2).to(device)
-            loss_dict["semantic_dis_loss"] = F.binary_cross_entropy_with_logits(sem_dis_logits, real_labels)
+            #real_labels = real_labels_dist_gen.sample((sem_dis_logits.shape[0],1)).squeeze(2).to(device)
+            #loss_dict["semantic_dis_loss"] = F.binary_cross_entropy_with_logits(sem_dis_logits, real_labels)
+            loss_dict["semantic_dis_loss"] = -1*sem_dis_logits.mean()
         else:
             loss_dict["semantic_dis_loss"] = torch.tensor(0).to(device)
 
