@@ -44,34 +44,9 @@ def predict_pose(cfg, device, meshes_to_process):
 
     return cached_pred_poses
 
-
-def correct_dists(uncorrected_pred_poses_dict, cfg, device):
-
-    input_dir_img = cfg['dataset']['input_dir_img']
-    input_dir_mesh = cfg['dataset']['input_dir_mesh']
-    num_dists = cfg['brute_force_pose_est']['num_dists']
-    corrected_pred_poses_dict = uncorrected_pred_poses_dict.copy()
-
-    for instance_name in tqdm(corrected_pred_poses_dict, file=general_utils.TqdmPrintEvery(), desc="correcting dists"):
-        print(instance_name)
-        img_path = os.path.join(input_dir_img, instance_name + ".png")
-        mesh_path = os.path.join(input_dir_mesh, instance_name + ".obj")
-        mask = np.asarray(Image.open(img_path))[:,:,3] > 0
-        with torch.no_grad():
-            mesh = general_utils.load_untextured_mesh(mesh_path, device)
-
-            # this catches an error in occnet reconstructions where the output has no vertices
-            if mesh.verts_packed().shape[0] == 0:
-                print("skipped")
-                continue
-        azim = corrected_pred_poses_dict[instance_name]["azim"]
-        elev = corrected_pred_poses_dict[instance_name]["elev"]
-        corrected_pred_poses_dict[instance_name]["dist"] = brute_force_estimate_dist(mesh, mask, azim, elev, num_dists, device)[2].item()
-
-    return corrected_pred_poses_dict
-
-
+# not currently used
 def adjust_vertices(mesh, adjusted_vertex_num):
+    
     mesh_vertices = mesh.verts_padded()
     vertex_num = mesh_vertices.shape[1]
 
@@ -140,6 +115,8 @@ if __name__ == "__main__":
     parser.add_argument('--use_gt_poses', action='store_true', help='Perform refinements with the ground truth pose, located in the image dir.')
     parser.add_argument('--recompute_poses', action='store_true', help='Recompute the poses, even if there is a precomputed pose cache.')
     parser.add_argument('--recompute_meshes', action='store_true', help='Recompute the meshes, even for ones which already exist.')
+    parser.add_argument('--instances_list', nargs='+', help='instances to refine; if not set, refine all of them')
+
     args = parser.parse_args()
 
     if args.batch_i > args.num_batches or args.batch_i <= 0:
@@ -150,16 +127,22 @@ if __name__ == "__main__":
     input_dir_img = cfg['dataset']['input_dir_img']
     input_dir_mesh = cfg['dataset']['input_dir_mesh']
 
-    # making processed meshes output dir
+    # making processed meshes output dir, and recursively copying all config yamls
     if input_dir_mesh[-1] == '/': input_dir_mesh = input_dir_mesh[:-1]
     output_dir_mesh = os.path.join(args.data_out_dir, "batch_{}_of_{}".format(args.batch_i, args.num_batches))
     if not os.path.exists(output_dir_mesh):
         os.makedirs(output_dir_mesh)
-    shutil.copyfile(args.cfg_path, os.path.join(args.data_out_dir, args.cfg_path.split("/")[-1]))
+    #shutil.copyfile(args.cfg_path, os.path.join(args.data_out_dir, args.cfg_path.split("/")[-1]))
+    all_inherited_cfg_paths = general_utils.get_all_inherited_cfgs(args.cfg_path) + ["configs/default.yaml"]
+    for inherited_cfg_path in all_inherited_cfg_paths:
+        shutil.copyfile(inherited_cfg_path, os.path.join(args.data_out_dir, inherited_cfg_path.split("/")[-1]))
+
 
     # finding which instances are in this batch
     instance_names = general_utils.get_instances(input_dir_mesh, input_dir_img)
     curr_batch_instances = split(instance_names, args.num_batches)[args.batch_i-1]
+    if args.instances_list is not None:
+        curr_batch_instances = [i for i in curr_batch_instances if i in args.instances_list]
 
     # precomputing poses for this batch if necessary
     pred_poses_path = os.path.join(output_dir_mesh, "pred_poses.p")
@@ -168,7 +151,7 @@ if __name__ == "__main__":
             print("\n Correcting Distances from GT Poses...\n")
             pred_poses_dict = pickle.load(open(os.path.join(input_dir_img, "renders_camera_params.pt"), "rb"))
             pred_poses_dict = {instance:pred_poses_dict[instance] for instance in pred_poses_dict if instance in curr_batch_instances}
-            pred_poses_dict = correct_dists(pred_poses_dict,cfg, device)
+            pred_poses_dict = general_utils.correct_dists(cfg['dataset']['input_dir_img'], cfg['dataset']['input_dir_mesh'], pred_poses_dict, device, num_dists=40)
         else:
             print("\nPredicting Poses...\n")
             pred_poses_dict = predict_pose(cfg, device, curr_batch_instances)

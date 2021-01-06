@@ -32,6 +32,7 @@ class MeshRefiner():
         self.img_sym_lam = self.cfg["training"]["img_sym_lam"]
         self.vertex_sym_lam = self.cfg["training"]["vertex_sym_lam"]
         self.semantic_dis_lam = self.cfg["training"]["semantic_dis_lam"]
+        self.def_loss_first_rel = self.cfg["training"]["def_loss_first_rel"]
 
 
     def setup_generator(self, num_verts):
@@ -97,6 +98,16 @@ class MeshRefiner():
         best_deformed_mesh = None
         best_refinement_info = {}
 
+        # deformation loss will relative to the first foward pass, not the original mesh
+        if self.def_loss_first_rel:
+            with torch.no_grad():
+                _, initial_deformed_mesh, _ = batched_forward_pass(self.cfg, self.device, deform_net, semantic_dis_net, deform_net_input, compute_losses=False)
+                deform_net_input["mesh"] = initial_deformed_mesh
+                deform_net_input["mesh_verts"] = torch.unsqueeze(initial_deformed_mesh.verts_packed(), 0)
+                if record_intermediate:
+                    deformed_meshes.append(initial_deformed_mesh.detach().cpu())
+
+        # starting REFINEment
         for i in tqdm(range(self.num_iterations)):
             deform_net.train()
             semantic_dis_net.eval()

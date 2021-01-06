@@ -1,0 +1,23 @@
+description: control hybrid old config
+
+inherit_from: configs/test.yaml
+
+refinement:
+  num_iterations: 1000
+  learning_rate: 0.0001
+
+
+training:
+  lap_smoothness_lam: 10  # laplacian smoothing loss [10*]
+  normal_consistency_lam: 10 # normal consistency loss [10*]
+
+  l2_lam: 1 # l2 loss on delta v  [100*]
+
+  sil_lam: 10 # silouette loss. [10*]
+  
+  semantic_dis_lam: 0 # semantic discriminator loss weight 
+
+
+semantic_dis_training:
+  dis_weight_path: ""
+  gen_weight_path: ""

@@ -1,0 +1,38 @@
+description: REFINE from job14, rel first
+
+inherit_from: configs/test.yaml
+
+dataset:
+  input_dir_mesh: "/home/svcl-oowl/brandon/research/CVPR_2021_REFINE/occupancy_networks/out/pytorch3d_renders/02691156/generation/meshes"
+  input_dir_img: "data/input_images/pytorch3d_shapenet_renders/02691156/rgba"
+  gt_shapes_lst_path: "data/gt_shapes_path_lists/shapenet_02691156_gt_shapes.lst"
+
+refinement:
+  num_iterations: 750
+  learning_rate: 0.0001
+
+
+training:
+  lap_smoothness_lam: 10  # laplacian smoothing loss [10*]
+  normal_consistency_lam: 10 # normal consistency loss [10*]
+
+  l2_lam: 100 # l2 loss on delta v  [100*]
+
+  sil_lam: 10 # silouette loss. [10*]
+
+  img_sym_num_azim: 3 #[3*]
+  img_sym_lam: 80 # image-based symmetry loss [75*]
+  vertex_sym_lam: 20 # vertex-based symmetry loss [0.0*]
+  vertex_asym: false
+
+  semantic_dis_lam: 0.5 # semantic discriminator loss weight 
+
+  def_loss_first_rel: true # deformation loss will be relative to the first foward pass, not the original mesh
+
+
+semantic_dis_training:
+  #dis_weight_path: "out/2020_12_19--08_53_55_job_14/semantic_dis_net_weights_0550.pt"
+  #gen_weight_path: "out/2020_12_19--08_53_55_job_14/deform_net_weights_0550.pt"
+  dis_weight_path: "out/2020_12_29--05_03_40_airplane_job_14/semantic_dis_net_weights_0600.pt"
+  gen_weight_path: "out/2020_12_29--05_03_40_airplane_job_14/deform_net_weights_0600.pt"
+

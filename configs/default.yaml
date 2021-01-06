@@ -39,6 +39,8 @@ training:
   lap_smoothness_lam: 10  # laplacian smoothing loss [10*]
   normal_consistency_lam: 10 # normal consistency loss [10*]
 
+  def_loss_first_rel: false # deformation loss will be relative to the first foward pass, not the original mesh
+
 
 # parameters for the generator and discriminator
 semantic_dis_training:

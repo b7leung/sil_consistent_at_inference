@@ -1,21 +1,35 @@
+description: With sil, both pretrained, 0 dis weight
+
 inherit_from: configs/test.yaml
 
 refinement:
-  num_iterations: 22
-  learning_rate: 0.00007
+  num_iterations: 1400
+  learning_rate: 0.00001
 
 
 training:
   lap_smoothness_lam: 10  # laplacian smoothing loss [10*]
   normal_consistency_lam: 10 # normal consistency loss [10*]
 
-  l2_lam: 0.1 # l2 loss on delta v  [100*]
+  l2_lam: 1 # l2 loss on delta v  [100*]
 
-  sil_lam: 0 # silouette loss. [10*]
+  sil_lam: 10 # silouette loss. [10*]
+
+  img_sym_num_azim: 3 #[3*]
+  img_sym_lam: 75 # image-based symmetry loss [75*]
+  vertex_sym_lam: 0.1 # vertex-based symmetry loss [0.0*]
   
-  semantic_dis_lam: 10 # semantic discriminator loss weight 
+  semantic_dis_lam: 0 # semantic discriminator loss weight 
 
+
+#semantic_dis_training:
+#  dis_weight_path: "out/2020_12_19--08_53_50_job_01/semantic_dis_net_weights_0950.pt"
+#  gen_weight_path: "out/2020_12_19--08_53_50_job_01/deform_net_weights_0950.pt"
+
+#semantic_dis_training:
+#  dis_weight_path: "out/2020_12_19--08_53_50_job_05/semantic_dis_net_weights_0950.pt"
+#  gen_weight_path: "out/2020_12_19--08_53_50_job_05/deform_net_weights_0950.pt"
 
 semantic_dis_training:
-  dis_weight_path: "out/2020_12_12--11_17_15_job_02/semantic_dis_net_weights_0400.pt"
-  gen_weight_path: "out/2020_12_12--11_17_15_job_02/deform_net_weights_0400.pt"
+  dis_weight_path: ""
+  gen_weight_path: ""

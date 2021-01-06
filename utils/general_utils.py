@@ -2,6 +2,8 @@ import yaml
 import glob
 import io
 import os
+import copy
+import pprint
 
 import torch
 import numpy as np
@@ -27,6 +29,10 @@ from pytorch3d.renderer import (
 )
 import plotly.express as px
 import plotly
+from tqdm.autonotebook import tqdm
+from PIL import Image
+
+from utils.brute_force_pose_est import brute_force_estimate_pose, brute_force_estimate_dist
 
 
 # General config
@@ -121,6 +127,47 @@ def get_all_inherited_cfgs(highest_cfg_path):
             else:
                 curr_cfg_inherits = False
     return all_inherited_cfg_paths
+
+
+def get_top_level_cfg_path(cfgs_dir, default_cfg_filename=None):
+    all_cfg_paths = glob.glob(os.path.join(cfgs_dir, "*.yaml"))
+    if default_cfg_filename is not None:
+        all_cfg_paths = [i for i in all_cfg_paths if i.split('/')[-1]!= default_cfg_filename]
+
+    # root config does not have "inherit_from"
+    root_cfg_filenames = []
+    inheriting_filenames = []
+    for curr_cfg_path in all_cfg_paths:
+        with open(curr_cfg_path, 'r') as f:
+            curr_cfg = yaml.load(f, Loader=yaml.FullLoader)
+            if "inherit_from" in curr_cfg:
+                inheriting_filenames.append(curr_cfg_path)
+            else:
+                root_cfg_filenames.append(curr_cfg_path.split('/')[-1])
+                
+    if len(root_cfg_filenames) != 1:
+        raise ValueError("There wasn't exactly one root config yaml in the dir. Found {}.".format(root_cfg_filenames))
+    root_cfg_filename = root_cfg_filenames[0]
+
+    if len(inheriting_filenames) == 0:
+        return root_cfg_filename
+    
+    # finding inheriting configs from bottom up
+    curr_inheritee_name = root_cfg_filename.split('/')[-1]
+    while len(inheriting_filenames) > 1:
+        for curr_cfg_path in inheriting_filenames:
+            with open(curr_cfg_path, 'r') as f:
+                curr_cfg = yaml.load(f, Loader=yaml.FullLoader)
+                curr_inheriting_name = curr_cfg["inherit_from"].split('/')[-1]
+                if curr_inheriting_name == curr_inheritee_name:
+                    inheriting_filenames.remove(curr_cfg_path)
+                    curr_inheritee_name = curr_inheriting_name
+                    break
+
+    return inheriting_filenames[0]
+
+    
+
                 
 
 # given the path of a dir with .obj meshes, and path of a dir with .png images
@@ -364,4 +411,24 @@ def plot_pointcloud(pointcloud, normalized=True):
     fig.show()
 
 
+def correct_dists(input_dir_img, input_dir_mesh, uncorrected_pred_poses_dict, device, num_dists=40):
+
+    corrected_pred_poses_dict = copy.deepcopy(uncorrected_pred_poses_dict)
+
+    for instance_name in tqdm(corrected_pred_poses_dict, desc="correcting dists"):
+        img_path = os.path.join(input_dir_img, instance_name + ".png")
+        mesh_path = os.path.join(input_dir_mesh, instance_name + ".obj")
+        mask = np.asarray(Image.open(img_path))[:,:,3] > 0
+        with torch.no_grad():
+            mesh = load_untextured_mesh(mesh_path, device)
+
+            # this catches an error in occnet reconstructions where the output has no vertices
+            if mesh.verts_packed().shape[0] == 0:
+                print("skipped {}".format(instance_name))
+                continue
+        azim = corrected_pred_poses_dict[instance_name]["azim"]
+        elev = corrected_pred_poses_dict[instance_name]["elev"]
+        corrected_pred_poses_dict[instance_name]["dist"] = brute_force_estimate_dist(mesh, mask, azim, elev, num_dists, device)[2].item()
+
+    return corrected_pred_poses_dict
 

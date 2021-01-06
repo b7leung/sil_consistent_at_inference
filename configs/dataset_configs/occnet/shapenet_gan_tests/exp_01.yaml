@@ -3,9 +3,9 @@ description: REFINE from job05, rel first
 inherit_from: configs/test.yaml
 
 dataset:
-  input_dir_mesh: "/home/svcl-oowl/brandon/research/CVPR_2021_REFINE/occupancy_networks/out/pytorch3d_renders/03001627/generation/meshes"
-  input_dir_img: "data/input_images/pytorch3d_shapenet_renders/03001627/rgba"
-  gt_shapes_lst_path: "data/gt_shapes_path_lists/shapenet_03001627_gt_shapes.lst"
+  input_dir_mesh: "/home/svcl-oowl/brandon/research/CVPR_2021_REFINE/occupancy_networks/out/pytorch3d_renders/02691156/generation/meshes"
+  input_dir_img: "data/input_images/pytorch3d_shapenet_renders/02691156/rgba"
+  gt_shapes_lst_path: "data/gt_shapes_path_lists/shapenet_02691156_gt_shapes.lst"
 
 refinement:
   num_iterations: 750
@@ -31,6 +31,8 @@ training:
 
 
 semantic_dis_training:
-  dis_weight_path: "out/2020_12_19--08_53_50_job_05/semantic_dis_net_weights_0950.pt"
-  gen_weight_path: "out/2020_12_19--08_53_50_job_05/deform_net_weights_0950.pt"
+  #dis_weight_path: "out/2020_12_19--08_53_50_job_05/semantic_dis_net_weights_0950.pt"
+  #gen_weight_path: "out/2020_12_19--08_53_50_job_05/deform_net_weights_0950.pt"
+  dis_weight_path: "out/2020_12_29--05_03_37_airplane_job_05/semantic_dis_net_weights_0600.pt"
+  gen_weight_path: "out/2020_12_29--05_03_37_airplane_job_05/deform_net_weights_0600.pt"
 

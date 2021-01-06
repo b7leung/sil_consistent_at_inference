@@ -139,8 +139,8 @@ def compute_iou_2d_multi(rec_mesh_torch, gt_mesh_torch, device, num_azims=8, num
     elevs = torch.repeat_interleave(torch.tensor([-45, 0, 45]), num_azims) # TODO: also add underneath elevs
     dists = torch.ones(num_azims*num_elevs) * 1
 
-    gt_renders = general_utils.batched_render(gt_mesh_torch, azims, elevs, dists, 8, device, False, 224, False)
-    rec_renders = general_utils.batched_render(rec_mesh_torch, azims, elevs, dists, 8, device, False, 224, False)
+    gt_renders = general_utils.batched_render(gt_mesh_torch, azims, elevs, dists, 8, device, False, 224)
+    rec_renders = general_utils.batched_render(rec_mesh_torch, azims, elevs, dists, 8, device, False, 224)
 
 
     iou_2d_scores = []
@@ -370,18 +370,19 @@ if __name__ == "__main__":
     parser.add_argument('--recompute', action='store_true', help='Recompute entries, even for ones which already exist.')
     parser.add_argument('--output_filename', type=str, default="eval_results", help='Name of output evaluation .pkl')
     args = parser.parse_args()
-    
 
     for metric in args.metrics:
         if metric not in all_metrics_list:
             raise ValueError("Metric {} is unknown.".format(metric))
     print("Metrics to evaluate: {}".format(args.metrics))
 
+    torch.manual_seed(0)
+    np.random.seed(0)
+
     # processing cfg file
-    #np.random.seed(0)
     device = torch.device("cuda:"+str(args.gpu))
-    #device = torch.device("cpu")
-    cfg = general_utils.load_config(glob.glob(os.path.join(args.refined_meshes_dir, "*.yaml"))[0])
+    top_level_cfg_path = general_utils.get_top_level_cfg_path(args.refined_meshes_dir, "default.yaml")
+    cfg = general_utils.load_config(top_level_cfg_path)
 
     img_dir = cfg["dataset"]["input_dir_img"]
     input_img_dict = {str(filename).split('/')[-1].split('.')[0]:str(filename) for filename in list(Path(img_dir).rglob('*.png'))}

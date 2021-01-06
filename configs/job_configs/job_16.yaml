@@ -1,0 +1,24 @@
+inherit_from: configs/test.yaml
+
+training:
+
+  lap_smoothness_lam: 10  # laplacian smoothing loss [10*]
+  normal_consistency_lam: 10 # normal consistency loss [10*]
+
+  l2_lam: 100 # l2 loss on delta v  [100*]
+
+  sil_lam: 10 # silouette loss. [10*]
+  
+  semantic_dis_lam: 50 # semantic discriminator loss weight 
+
+  img_sym_num_azim: 3 #[3*]
+  img_sym_lam: 80 # image-based symmetry loss [75*]
+  vertex_sym_lam: 0 # vertex-based symmetry loss [0.0*]
+
+
+semantic_dis_training:
+  gen_dir_mesh: "../occupancy_networks/out/pytorch3d_renders/03001627/generation/meshes"
+  gen_dir_img: "data/input_images/pytorch3d_shapenet_renders/03001627/rgba"
+  gen_poses: "../occupancy_networks/out/pytorch3d_renders/03001627/generation/meshes/rec_camera_params.pt"
+
+  dis_class_name: "Chair"
