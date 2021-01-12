@@ -55,7 +55,8 @@ semantic_dis_training:
   save_samples_every: 10 # save and evaluate samples every n adversarial iterations
   num_mesh_batch_eval: 1
   mesh_num_verts: 1500
-  num_verts_tolerance: 0 # tolerance for points input to generator
+  num_verts_tolerance: 0 # tolerance for num of verts less than mesh_num_verts (those with more are automatically removed)
+  standardize_num_verts: true
   normalize_data: true # normalize pointclouds (real and fake) by centering and contraining to sphere of diameter 1
 
   # training details

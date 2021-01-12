@@ -1,24 +1,43 @@
+description: img input adv training based on training set
+
 inherit_from: configs/test.yaml
 
-training:
+dataset:
+  input_dir_mesh: "/home/svcl-oowl/brandon/research/CVPR_2021_REFINE/occupancy_networks/out/pytorch3d_renders/02691156/generation/meshes"
+  input_dir_img: "data/input_images/pytorch3d_shapenet_renders/02691156/rgba"
+  gt_shapes_lst_path: "data/gt_shapes_path_lists/shapenet_02691156_gt_shapes.lst"
 
+refinement:
+  num_iterations: 750
+  learning_rate: 0.0001
+
+
+training:
   lap_smoothness_lam: 10  # laplacian smoothing loss [10*]
   normal_consistency_lam: 10 # normal consistency loss [10*]
 
-  l2_lam: 1 # l2 loss on delta v  [100*]
+  l2_lam: 20 # l2 loss on delta v  [100*]
 
-  sil_lam: 10 # silouette loss. [10*]
-  
-  semantic_dis_lam: 1 # semantic discriminator loss weight 
+  sil_lam: 0 # silouette loss. [10*]
 
   img_sym_num_azim: 3 #[3*]
-  img_sym_lam: 80 # image-based symmetry loss [75*]
-  vertex_sym_lam: 20 # vertex-based symmetry loss [0.0*]
+  img_sym_lam: 0 # image-based symmetry loss [75*]
+  vertex_sym_lam: 0 # vertex-based symmetry loss [0.0*]
+  vertex_asym: false
+
+  semantic_dis_lam: 10 # semantic discriminator loss weight 
+
+  def_loss_first_rel: false # deformation loss will be relative to the first foward pass, not the original mesh
 
 
 semantic_dis_training:
-  gen_dir_mesh: "../occupancy_networks/out/pytorch3d_renders/03001627/generation/meshes"
-  gen_dir_img: "data/input_images/pytorch3d_shapenet_renders/03001627/rgba"
-  gen_poses: "../occupancy_networks/out/pytorch3d_renders/03001627/generation/meshes/rec_camera_params.pt"
+  gen_dir_mesh: "../occupancy_networks/out/pytorch3d_renders_training/02691156/generation/meshes"
+  gen_dir_img: "data/input_images/pytorch3d_shapenet_renders_training/02691156/rgba"
+  gen_poses: "../occupancy_networks/out/pytorch3d_renders_training/02691156/generation/meshes/rec_camera_params.pt"
 
-  dis_class_name: "Chair"
+  train_partition_file: "data_prep_tools/adv_refine_training_partitions/02691156_train.lst"
+  val_partition_file: "data_prep_tools/adv_refine_training_partitions/02691156_val.lst"
+
+  D_iter: 5
+  dis_class_name: "Airplane"
+

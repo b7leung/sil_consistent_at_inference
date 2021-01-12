@@ -29,12 +29,14 @@ semantic_dis_training:
   recompute_input_mesh_cache: false
   save_model_every: 50 # save and evaluate model every n adversarial iterations
   save_samples_every: 5 # save and evaluate samples every n adversarial iterations
-  num_mesh_batch_eval: 4
-  mesh_num_verts: 1502
+  num_mesh_batch_eval: 5
+  standardize_num_verts: true
+  mesh_num_verts: 1550 #2490
+  num_verts_tolerance: 100
 
   # training details
   batch_size: 8
-  epochs: 1500
+  epochs: 1000
   D_iter: 5
 
   adv_iterations: 25000
@@ -46,11 +48,10 @@ semantic_dis_training:
   lambdaGP: 10
 
   # generator options
-  deform_net_type: "gcn_hybrid" # {pointnet, gcn_full, fc_vert_aligned, gcn_hybrid}
+  deform_net_type: "gcn_hybrid_img_input" # {pointnet, gcn_full, fc_vert_aligned, gcn_hybrid, gcn_hybrid_img_input}
   gen_dir_mesh: "../occupancy_networks/out/pytorch3d_renders/04379243/generation/meshes" # table
   gen_dir_img: "data/input_images/pytorch3d_shapenet_renders/04379243/rgba"
   gen_poses: "data/input_images/pytorch3d_shapenet_renders/04379243/rgba/renders_camera_params.pt"
-  num_verts_tolerance: 0
   gen_pointnet_lr: 0.0001
   gen_gcn_lr: 0.0001
   gen_decay: 0.0

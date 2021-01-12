@@ -1,0 +1,21 @@
+inherit_from: configs/test.yaml
+
+semantic_dis_training:
+  use_input_mesh_cache: true
+  recompute_input_mesh_cache: true
+  standardize_num_verts: true
+
+  # gt meshes test
+  gen_dir_mesh: "data/test_gt_mesh/meshes"
+  gen_dir_img: "data/test_gt_mesh/images"
+  gen_poses: "data/test_gt_mesh/renders_camera_params.pt"
+  mesh_num_verts: 2505 #2490
+  num_verts_tolerance: 1000
+
+  # test reconstructed chairs
+  #gen_dir_mesh: "../occupancy_networks/out/pytorch3d_renders/03001627/generation/meshes"
+  #gen_dir_img: "data/input_images/pytorch3d_shapenet_renders/03001627/rgba"
+  ##gen_poses: "data/input_images/pytorch3d_shapenet_renders/03001627/rgba/renders_camera_params.pt"
+  #gen_poses: "../occupancy_networks/out/pytorch3d_renders/03001627/generation/meshes/rec_camera_params.pt"
+  #mesh_num_verts: 1523 #2490
+  #num_verts_tolerance: 100

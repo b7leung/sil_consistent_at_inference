@@ -44,21 +44,6 @@ def predict_pose(cfg, device, meshes_to_process):
 
     return cached_pred_poses
 
-# not currently used
-def adjust_vertices(mesh, adjusted_vertex_num):
-    
-    mesh_vertices = mesh.verts_padded()
-    vertex_num = mesh_vertices.shape[1]
-
-    if vertex_num > adjusted_vertex_num:
-        mesh_vertices = mesh_vertices[:,(vertex_num-adjusted_vertex_num):,:]
-    
-    elif vertex_num < adjusted_vertex_num:
-        while mesh_vertices.shape[1] < adjusted_vertex_num:
-            mesh_vertices = torch.cat([mesh_vertices, mesh_vertices[:,0,:].unsqueeze(0)], axis=1)
-
-    return pytorch3d.structures.Meshes(verts=mesh_vertices, faces=mesh.faces_padded())
-
 
 # postprocesses imgs/meshes based on a dict of cached predicted poses (the output of predict_pose)
 def postprocess_data(pred_poses_dict, output_dir_mesh, cfg, device, recompute_meshes):

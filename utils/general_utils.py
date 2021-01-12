@@ -4,6 +4,7 @@ import io
 import os
 import copy
 import pprint
+import random
 
 import torch
 import numpy as np
@@ -199,7 +200,7 @@ def load_untextured_mesh(mesh_path, device):
 
 
 # for rendering a single image
-def render_mesh(mesh, R, T, device, img_size=512, silhouette=False, custom_lights="", differentiable=True):
+def render_mesh(mesh, R, T, device, img_size=512, silhouette=False, custom_lights="", differentiable=True, return_renderer_only=False):
     cameras = OpenGLPerspectiveCameras(device=device, R=R, T=T)
 
     if silhouette:
@@ -258,9 +259,11 @@ def render_mesh(mesh, R, T, device, img_size=512, silhouette=False, custom_light
                     lights=lights
                 )
             )
-
-    rendered_images = renderer(mesh, cameras=cameras)
-    return rendered_images
+    if return_renderer_only:
+        return renderer
+    else:
+        rendered_images = renderer(mesh, cameras=cameras)
+        return rendered_images
 
 
 # for batched rendering of many images
@@ -431,4 +434,22 @@ def correct_dists(input_dir_img, input_dir_mesh, uncorrected_pred_poses_dict, de
         corrected_pred_poses_dict[instance_name]["dist"] = brute_force_estimate_dist(mesh, mask, azim, elev, num_dists, device)[2].item()
 
     return corrected_pred_poses_dict
+
+
+# increases a mesh to a target number of vertices by randomly duplicating vertices
+def adjust_vertices(mesh, target_vertex_num):
+    mesh_vertices = mesh.verts_padded()
+    original_vertex_num = mesh_vertices.shape[1]
+
+    if original_vertex_num > target_vertex_num:
+        raise ValueError("Target vertex num cannot be less than the original vertex num")
+    elif original_vertex_num == target_vertex_num:
+        return mesh
+    else:
+        while mesh_vertices.shape[1] < target_vertex_num:
+            random_duplicated_vertex = mesh_vertices[0, random.randint(0, original_vertex_num-1), :].unsqueeze(0).unsqueeze(0)
+            mesh_vertices = torch.cat([mesh_vertices, random_duplicated_vertex], axis=1)
+
+        adjusted_mesh = Meshes(verts=mesh_vertices, faces=mesh.faces_padded(), textures=mesh.textures)
+        return adjusted_mesh
 

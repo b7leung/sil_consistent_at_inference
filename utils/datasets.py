@@ -38,7 +38,7 @@ def gen_data_collate(batch):
 class GenerationDataset(Dataset):
     """Dataset used for mesh deformation generator. Each datum is a tuple {mesh vertices, input img, predicted pose}"""
 
-    def __init__(self, cfg):
+    def __init__(self, cfg, instances_to_use=None):
         self.cfg = cfg
         self.cpu_device = torch.device("cpu")
         self.input_dir_img = cfg['semantic_dis_training']['gen_dir_img']
@@ -47,50 +47,60 @@ class GenerationDataset(Dataset):
         self.gen_poses = cfg['semantic_dis_training']['gen_poses']
         self.cached_pred_poses = pickle.load(open(self.gen_poses, "rb"))
         self.normalize = cfg['semantic_dis_training']['normalize_data']
+        self.img_transforms = transforms.Compose([transforms.ToTensor()])
+        self.standardize_num_verts = cfg['semantic_dis_training']['standardize_num_verts']
 
+        # TODO: remove this?
         self.num_batches_gen_train = cfg["semantic_dis_training"]["num_batches_gen_train"]
         self.batch_size = cfg["semantic_dis_training"]["batch_size"]
-        
         if self.num_batches_gen_train != -1:
             self.dataset_meshes_list = self.dataset_meshes_list[:self.num_batches_gen_train * self.batch_size]
 
-        self.img_transforms = transforms.Compose([
-            transforms.ToTensor(),
-        ])
+        # filtering based on specified instances
+        if instances_to_use is not None:
+            old_dataset_length = len(self.dataset_meshes_list)
+            self.dataset_meshes_list = [x for x in self.dataset_meshes_list if x in instances_to_use]
+            print("Filtered based on specified instances, from {} -> {}.".format(old_dataset_length, len(self.dataset_meshes_list)))
 
         # computing cache for entire dataset
         self.recompute_cache = cfg['semantic_dis_training']['recompute_input_mesh_cache']
         self.use_cache = cfg['semantic_dis_training']['use_input_mesh_cache']
-        # TODO: make this cache filename more detailed
-        self.input_mesh_cache_path = os.path.join(cfg["semantic_dis_training"]["cache_dir"],"generation_dataset_cache_{}.pt".format(len(self.dataset_meshes_list)))
-        if self.recompute_cache or (self.use_cache and not os.path.exists(self.input_mesh_cache_path)):
-            print("Caching generation dataset...")
-            self.cached_data = [self.getitem_scratch(i) for i in tqdm(range(len(self.dataset_meshes_list)))]
-            if not os.path.exists(cfg["semantic_dis_training"]["cache_dir"]):
-                os.makedirs(cfg["semantic_dis_training"]["cache_dir"])
-            torch.save(self.cached_data, self.input_mesh_cache_path)
-        elif self.use_cache:
+        # TODO: add warning about duplicate caches gotcha
+        cache_filename = "generation_dataset_cache__{}__{}.pt".format(self.input_dir_mesh.replace("/","_").replace(".", ""), len(self.dataset_meshes_list)) 
+        self.input_mesh_cache_path = os.path.join(cfg["semantic_dis_training"]["cache_dir"], cache_filename)
+
+        if self.use_cache and not self.recompute_cache and os.path.exists(self.input_mesh_cache_path):
             print("Loading cached generation dataset at {}...".format(self.input_mesh_cache_path))
             self.cached_data = torch.load(self.input_mesh_cache_path)
-            # gotcha for case where num_batches_gen_train has changed
-            if len(self.cached_data) != len(self.dataset_meshes_list):
-                raise ValueError("Cache length {} != requested length {}. Try recomputing cache with current settings.".format(len(self.cached_data), len(self.dataset_meshes_list)))
         
-        # filtering based on number of vertices
-        num_verts_tolerance = cfg['semantic_dis_training']["num_verts_tolerance"]
-        num_verts_target = cfg['semantic_dis_training']["mesh_num_verts"]
-        valid_data_idxs = []
-        for i, data in enumerate(self.cached_data):
-            num_verts = data["mesh_verts"].shape[0]
-            if (num_verts >= (num_verts_target - num_verts_tolerance)) and (num_verts <= (num_verts_target + num_verts_tolerance)):
-                valid_data_idxs.append(i)
-        old_dataset_length = len(self.cached_data)
-        self.cached_data = [self.cached_data[i] for i in range(len(self.cached_data)) if i in valid_data_idxs]
-        print("Reduced dataset size from {} -> {} due to filter on mesh number of vertices.".format(old_dataset_length, len(self.cached_data)))
+        else:
+            # filtering based on number of vertices
+            print("Filtering number of vertices...")
+            num_verts_tolerance = cfg['semantic_dis_training']["num_verts_tolerance"]
+            self.num_verts_target = cfg['semantic_dis_training']["mesh_num_verts"]
+            old_dataset_length = len(self.dataset_meshes_list)
+            filtered_dataset_meshes_list = []
+            for instance_name in tqdm(self.dataset_meshes_list):
+                curr_obj_path = os.path.join(self.input_dir_mesh, instance_name+".obj")
+                num_verts = general_utils.load_untextured_mesh(curr_obj_path, self.cpu_device).verts_packed().shape[0]
+                if (num_verts >= (self.num_verts_target - num_verts_tolerance)) and (num_verts <= self.num_verts_target):
+                    filtered_dataset_meshes_list.append(instance_name)
+            self.dataset_meshes_list = filtered_dataset_meshes_list
+            print("Reduced dataset size from {} -> {} due to filter on {} (-{}) mesh num verts.".format(old_dataset_length, len(self.dataset_meshes_list), self.num_verts_target, num_verts_tolerance))
 
+            if self.use_cache:
+                print("Caching generation dataset...")
+                self.cached_data = [self.getitem_scratch(i) for i in tqdm(range(len(self.dataset_meshes_list)))]
+                if not os.path.exists(cfg["semantic_dis_training"]["cache_dir"]):
+                    os.makedirs(cfg["semantic_dis_training"]["cache_dir"])
+                torch.save(self.cached_data, self.input_mesh_cache_path)
+        
     
     def __len__(self):
-        return len(self.cached_data)
+        if self.use_cache:
+            return len(self.cached_data)
+        else:
+            return len(self.dataset_meshes_list)
 
 
     def __getitem__(self, idx):
@@ -122,6 +132,11 @@ class GenerationDataset(Dataset):
             # load mesh to cpu
             # This can probably be done in a more efficent way (load a batch of meshes?)
             mesh = general_utils.load_untextured_mesh(curr_obj_path, self.cpu_device)
+
+        # adjusting mesh vertices
+        if self.standardize_num_verts:
+            mesh = general_utils.adjust_vertices(mesh, self.num_verts_target)
+
         data["mesh"] = mesh
             
         data["mesh_verts"] = mesh.verts_packed()
