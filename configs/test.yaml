@@ -27,7 +27,7 @@ semantic_dis_training:
   cache_dir: "caches"
   use_input_mesh_cache: true
   recompute_input_mesh_cache: false
-  save_model_every: 50 # save and evaluate model every n adversarial iterations
+  save_model_every: 10 # save and evaluate model every n adversarial iterations
   save_samples_every: 5 # save and evaluate samples every n adversarial iterations
   num_mesh_batch_eval: 5
   standardize_num_verts: true

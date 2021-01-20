@@ -5,6 +5,7 @@ import time
 import shutil
 import pprint
 import glob
+import yaml
 
 import torch
 from torch.nn import functional as F
@@ -46,7 +47,20 @@ class AdversarialDiscriminatorTrainer():
             if not os.path.exists(self.training_output_dir): os.makedirs(self.training_output_dir)
             all_inherited_cfg_paths = general_utils.get_all_inherited_cfgs(starting_cfg_path) + ["configs/default.yaml"]
             for inherited_cfg_path in all_inherited_cfg_paths:
-                shutil.copyfile(inherited_cfg_path, os.path.join(self.training_output_dir, inherited_cfg_path.split("/")[-1]))
+                cfg_dest_path = os.path.join(self.training_output_dir, inherited_cfg_path.split("/")[-1])
+                shutil.copyfile(inherited_cfg_path, cfg_dest_path)
+                # fixing inherit from to the yaml in the training output dir
+                with open(cfg_dest_path, 'r') as f:
+                    lines = f.read().split('\n')
+                    fixed_inherit_path = False
+                    for i, line in enumerate(lines):
+                        if "inherit_from:" in line:
+                            lines[i] = "inherit_from: {}".format(os.path.join(self.training_output_dir, line.split('/')[-1]))
+                            fixed_inherit_path = True
+                if fixed_inherit_path:
+                    with open(cfg_dest_path, "w") as f:
+                        for line in lines:
+                            f.write("{}\n".format(line))
             self.train_loss_info = pd.DataFrame()
             self.val_loss_info = pd.DataFrame()
             self.dis_weight_path = ""
@@ -58,7 +72,7 @@ class AdversarialDiscriminatorTrainer():
             self.training_output_dir = continue_from_dir
             print("Continuing training from {}...".format(self.training_output_dir))
             starting_cfg_path = general_utils.get_top_level_cfg_path(self.training_output_dir, "default.yaml")
-            self.cfg = general_utils.load_config(starting_cfg_path, "configs/default.yaml")
+            self.cfg = general_utils.load_config(starting_cfg_path, os.path.join(self.training_output_dir, "default.yaml"))
             latest_saved_epoch = int(sorted(glob.glob(os.path.join(self.training_output_dir,"deform_net_weights_*.pt")))[-1].split('/')[-1].replace("deform_net_weights_","").replace(".pt",""))
 
             # removing saved eval dirs past the last saved epoch weights
@@ -263,6 +277,7 @@ class AdversarialDiscriminatorTrainer():
 
                 # ---------------------- Generator ---------------------- #
                 G.zero_grad()
+                # TODO: IMPORTANT, shouldn't this be optimizer.zero_grad()?
                 
                 gen_batch = infinite_train_gen_loader.get_batch()
                 #fake_point = G(gen_batch)

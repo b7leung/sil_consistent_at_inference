@@ -39,5 +39,5 @@ semantic_dis_training:
   val_partition_file: "data_prep_tools/adv_refine_training_partitions/03001627_val.lst"
 
   D_iter: 0
-  dis_class_name: "Airplane"
+  dis_class_name: "Chair"
 
