@@ -260,7 +260,38 @@ def align_and_normalize_verts_2(verts, poses, device):
 
     return aligned_verts
 
+# aligning and normalizing a batch of vertex positions so (-1,-1) is the top left, (1,1) is the bottom right relative to the feature m
+# Inputs: 
+# - verts: FloatTensor of shape (N, V, 3) giving a batch of vertex positions
+# - poses:  a b x 3 tensor specifying distance, elevation, azimuth (in that order)
+# Outputs:
+# - aligned_verts: Tensor of shape (N,V,3) giving a batch of aligned vertex positions
+def align_and_normalize_verts_original(verts, poses, device):
 
+    distances = poses[:,0]
+    elevations = poses[:,1]
+    azimuths = poses[:,2]
+
+    # creating batch of 4x4 extrinsic matrices from rotation matrices and translation vectors
+    temp = torch.tensor([0,0,0,1])
+    temp = temp.repeat(poses.shape[0],1).unsqueeze(1)
+    R, T = look_at_view_transform(distances, elevations, azimuths)
+    T = T.unsqueeze(2)
+    P = torch.cat([R,T], 2)
+    P = torch.cat([P,temp], 1)
+
+    # changing vertices from world coordinates to camera coordinates
+    P_inv = torch.inverse(P).to(device)
+    aligned_verts = rotate_verts(P_inv, verts)
+
+    # TODO: for some reason, x2 seems to be a good way to normalize verts to roughly be in (-1,-1), (1,1). not sure if this is always the case
+    aligned_verts = aligned_verts * 2
+
+    # TODO: not sure if this should always be applied
+    aligned_verts = reflect_batch(aligned_verts, [1,0,0], device)
+    aligned_verts = reflect_batch(aligned_verts, [0,1,0], device)
+
+    return aligned_verts
 
 
 

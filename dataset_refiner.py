@@ -97,7 +97,7 @@ if __name__ == "__main__":
     parser.add_argument('--batch_i', type=int, default=1, help='which batch this is (1-indexed)')
     parser.add_argument('--num_batches', type=int, default=1, help='number of batches to split dataset into')
     parser.add_argument('--gpu', type=int, default=0, help='Gpu number to use.')
-    parser.add_argument('--use_gt_poses', action='store_true', help='Perform refinements with the ground truth pose, located in the image dir.')
+    parser.add_argument('--use_given_poses', action='store_true', help='Perform refinements with the specified pose dict in config.')
     parser.add_argument('--recompute_poses', action='store_true', help='Recompute the poses, even if there is a precomputed pose cache.')
     parser.add_argument('--recompute_meshes', action='store_true', help='Recompute the meshes, even for ones which already exist.')
     parser.add_argument('--instances_list', nargs='+', help='instances to refine; if not set, refine all of them')
@@ -130,19 +130,24 @@ if __name__ == "__main__":
         curr_batch_instances = [i for i in curr_batch_instances if i in args.instances_list]
 
     # precomputing poses for this batch if necessary
-    pred_poses_path = os.path.join(output_dir_mesh, "pred_poses.p")
-    if args.recompute_poses or not os.path.exists(pred_poses_path):
-        if args.use_gt_poses:
-            print("\n Correcting Distances from GT Poses...\n")
-            pred_poses_dict = pickle.load(open(os.path.join(input_dir_img, "renders_camera_params.pt"), "rb"))
-            pred_poses_dict = {instance:pred_poses_dict[instance] for instance in pred_poses_dict if instance in curr_batch_instances}
-            pred_poses_dict = general_utils.correct_dists(cfg['dataset']['input_dir_img'], cfg['dataset']['input_dir_mesh'], pred_poses_dict, device, num_dists=40)
-        else:
-            print("\nPredicting Poses...\n")
-            pred_poses_dict = predict_pose(cfg, device, curr_batch_instances)
-        pickle.dump(pred_poses_dict, open(pred_poses_path,"wb"))
+    #pred_poses_path = os.path.join(output_dir_mesh, "pred_poses.p")
+    #if args.recompute_poses or not os.path.exists(pred_poses_path):
+    #if args.use_given_poses:
+    if cfg['dataset']['input_poses'] == "":
+        print("\n Correcting Distances from GT Poses...\n")
+        pred_poses_dict = pickle.load(open(os.path.join(input_dir_img, "renders_camera_params.pt"), "rb"))
+        pred_poses_dict = {instance:pred_poses_dict[instance] for instance in pred_poses_dict if instance in curr_batch_instances}
+        pred_poses_dict = general_utils.correct_dists(cfg['dataset']['input_dir_img'], cfg['dataset']['input_dir_mesh'], pred_poses_dict, device, num_dists=40)
     else:
-        pred_poses_dict = pickle.load(open(pred_poses_path, "rb"))
+        print("\n Loading Poses from Saved Dict File...\n")
+        pred_poses_dict = pickle.load(open(cfg['dataset']['input_poses'], "rb"))
+        pred_poses_dict = {instance:pred_poses_dict[instance] for instance in pred_poses_dict if instance in curr_batch_instances}
+    #else:
+    #    print("\nPredicting Poses by Brute Force...\n")
+    #    pred_poses_dict = predict_pose(cfg, device, curr_batch_instances)
+    #pickle.dump(pred_poses_dict, open(pred_poses_path,"wb"))
+    #else:
+    #    pred_poses_dict = pickle.load(open(pred_poses_path, "rb"))
 
     # postprocessing meshes
     print("\nPerforming optimization-based postprocessing on mesh reconstructions...\n")

@@ -1,6 +1,7 @@
 dataset:
-  input_dir_mesh: "data/onet_chair_pix3d_dann_simplified" # Path to folder with meshes to postprocess.
-  input_dir_img: "data/img_pix3d_chair/chair" # Path to folder with images for meshes.
+  input_dir_mesh: "" # Path to folder with meshes to postprocess.
+  input_dir_img: "" # Path to folder with images for meshes.
+  input_poses: "" # Path to folder with poses for meshes.
 
 
 brute_force_pose_est:

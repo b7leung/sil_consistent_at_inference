@@ -71,7 +71,7 @@ class DeformationNetworkGraphConvolutionalFull(nn.Module):
 
         # aligning and normalizing vertex positions so (-1,-1) is the top left, (1,1) is the bottom right relative to the feature map
         verts_padded = mesh_batch.verts_padded()
-        aligned_verts_padded = coords.align_and_normalize_verts(verts_padded, poses, self.device)
+        aligned_verts_padded = coords.align_and_normalize_verts_original(verts_padded, poses, self.device)
 
         # computing vert_align features
         vert_align_feats = pytorch3d.ops.vert_align(feat_maps, aligned_verts_padded, return_packed=True)
